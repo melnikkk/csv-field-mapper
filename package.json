@@ -1,0 +1,50 @@
+{
+  "name": "csv-field-mapper",
+  "private": true,
+  "type": "module",
+  "module": "index.ts",
+  "scripts": {
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "start": "mastra start",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.32.1",
+    "@mastra/duckdb": "^1.3.0",
+    "@mastra/evals": "^1.2.2",
+    "@mastra/libsql": "^1.10.0",
+    "@mastra/loggers": "^1.1.1",
+    "@mastra/memory": "^1.17.5",
+    "@mastra/observability": "^1.11.1",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^25.6.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.4",
+    "mastra": "^1.8.1",
+    "oxfmt": "^0.48.0",
+    "oxlint": "^1.63.0"
+  },
+  "peerDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "oxlint --fix",
+      "oxfmt"
+    ],
+    "*.{json,md}": [
+      "oxfmt"
+    ]
+  }
+}
