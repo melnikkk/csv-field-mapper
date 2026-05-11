@@ -21,11 +21,13 @@
     "@mastra/loggers": "^1.1.1",
     "@mastra/memory": "^1.17.5",
     "@mastra/observability": "^1.11.1",
+    "papaparse": "^5.5.3",
     "zod": "^4"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "^25.6.2",
+    "@types/papaparse": "^5.5.2",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.4",
     "mastra": "^1.8.1",
