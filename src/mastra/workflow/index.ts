@@ -1,16 +1,8 @@
 import { createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 import { analyzeCsvStep } from "./steps/analyze-csv-step";
-
-const templateColumnSchema = z.object({
-  columnTitle: z.string(),
-  required: z.boolean(),
-});
-
-const templateSchema = z.object({
-  maxFileSize: z.number().positive(),
-  columns: z.array(templateColumnSchema),
-});
+import { templateSchema } from "./steps/shared/schemas/templateSchema";
+import { proposeFieldMappingStep } from "./steps/propose-field-mapping-step";
 
 export const csvFieldMapperWorkflow = createWorkflow({
   id: "csv-field-mapper-workflow",
@@ -24,10 +16,24 @@ export const csvFieldMapperWorkflow = createWorkflow({
     totalRows: z.number(),
     error: z.string().optional(),
   }),
-})
+});
+
+csvFieldMapperWorkflow
   .map(async ({ inputData }) => ({
     filePath: inputData.filePath,
     maxFileSize: inputData.template.maxFileSize,
   }))
   .then(analyzeCsvStep)
+  .map(async ({ inputData, getInitData }) => ({
+    headerRow: inputData.headerRow,
+    templateColumns: getInitData<{
+      filePath: string;
+      template: z.infer<typeof templateSchema>;
+    }>().template.columns,
+    aliasDictionary: getInitData<{
+      filePath: string;
+      template: z.infer<typeof templateSchema>;
+    }>().template.aliasDictionary,
+  }))
+  .then(proposeFieldMappingStep)
   .commit();
