@@ -1,28 +1,83 @@
 import { z } from "zod";
 import { createStep } from "@mastra/core/workflows";
+import { generateText, Output } from "ai";
 import {
   templateColumnsSchema,
   aliasDictionarySchema,
 } from "../shared/schemas/templateSchema";
-import { mappingResultSchema } from "./schema";
-import { mapColumnsBasedOnDictionary } from "./utils";
+import {
+  MappingResults,
+  llmMapSuggestionSchema,
+  mappingResultsSchema,
+} from "./schema";
+import {
+  getUnmappedTemplateColumnTitles,
+  getUnresolvedCsvHeadersWithSamples,
+  mapColumnsBasedOnDictionary,
+} from "./utils";
+import { rowSchema, rowsSchema } from "../shared/schemas/rowsSchema";
+import { geminiFlash } from "../../../models";
+import { buildFieldMappingPrompt } from "./prompts";
 
 export const proposeFieldMappingStep = createStep({
   id: "propose-field-mapping",
   inputSchema: z.object({
-    headerRow: z.array(z.string()),
+    headerRow: rowSchema,
+    sampleRows: rowsSchema,
     templateColumns: templateColumnsSchema,
     aliasDictionary: aliasDictionarySchema.optional(),
   }),
   outputSchema: z.object({
-    mappingResults: z.array(mappingResultSchema),
+    mappingResults: mappingResultsSchema,
   }),
   execute: async ({ inputData }) => {
-    const mappingResults = mapColumnsBasedOnDictionary(
-      inputData.headerRow,
-      inputData.templateColumns,
-      inputData.aliasDictionary,
+    const { headerRow, templateColumns, aliasDictionary, sampleRows } =
+      inputData;
+
+    const mappingResults: MappingResults = mapColumnsBasedOnDictionary(
+      headerRow,
+      templateColumns,
+      aliasDictionary,
     );
+
+    const unmappedTemplateColumnTitles =
+      getUnmappedTemplateColumnTitles(mappingResults);
+
+    if (unmappedTemplateColumnTitles.length === 0) {
+      return { mappingResults };
+    }
+
+    const unresolvedHeadersWithSamples = getUnresolvedCsvHeadersWithSamples(
+      headerRow,
+      mappingResults,
+      sampleRows,
+    );
+
+    const { output: suggestions } = await generateText({
+      model: geminiFlash,
+      output: Output.object({ schema: llmMapSuggestionSchema }),
+      prompt: buildFieldMappingPrompt(
+        unresolvedHeadersWithSamples,
+        templateColumns,
+      ),
+    });
+
+    for (const suggestion of suggestions.mappings) {
+      if (!suggestion.templateColumnTitle) {
+        continue;
+      }
+
+      const entry = mappingResults.find(
+        (result) =>
+          result.templateColumn.title === suggestion.templateColumnTitle &&
+          result.csvHeader === undefined,
+      );
+
+      if (entry) {
+        entry.csvHeader = suggestion.csvHeader;
+        entry.confidence = suggestion.confidence;
+      }
+    }
 
     return { mappingResults };
   },
