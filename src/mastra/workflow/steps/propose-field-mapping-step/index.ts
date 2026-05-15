@@ -5,11 +5,7 @@ import {
   templateColumnsSchema,
   aliasDictionarySchema,
 } from "../shared/schemas/templateSchema";
-import {
-  MappingResults,
-  llmMapSuggestionSchema,
-  mappingResultsSchema,
-} from "./schema";
+import { llmMapSuggestionSchema } from "./schema";
 import {
   getUnmappedTemplateColumnTitles,
   getUnresolvedCsvHeadersWithSamples,
@@ -18,6 +14,10 @@ import {
 import { rowSchema, rowsSchema } from "../shared/schemas/rowsSchema";
 import { geminiFlash } from "../../../models";
 import { buildFieldMappingPrompt } from "./prompts";
+import {
+  MappingResults,
+  mappingResultsSchema,
+} from "../shared/schemas/mappingSchema";
 
 export const proposeFieldMappingStep = createStep({
   id: "propose-field-mapping",
