@@ -3,7 +3,8 @@ import { z } from "zod";
 import { analyzeCsvStep } from "./steps/analyze-csv-step";
 import { templateSchema } from "./steps/shared/schemas/templateSchema";
 import { proposeFieldMappingStep } from "./steps/propose-field-mapping-step";
-import { rowsSchema, rowSchema } from "./steps/shared/schemas/rowsSchema";
+import { approveFieldMappingStep } from "./steps/approve-field-mapping-step";
+import { mappingResultsSchema } from "./steps/shared/schemas/mappingSchema";
 
 export const csvFieldMapperWorkflow = createWorkflow({
   id: "csv-field-mapper-workflow",
@@ -12,10 +13,7 @@ export const csvFieldMapperWorkflow = createWorkflow({
     template: templateSchema,
   }),
   outputSchema: z.object({
-    headerRow: rowSchema,
-    sampleRows: rowsSchema,
-    totalRows: z.number(),
-    error: z.string().optional(),
+    approvedMappings: mappingResultsSchema,
   }),
 });
 
@@ -38,4 +36,5 @@ csvFieldMapperWorkflow
     }>().template.aliasDictionary,
   }))
   .then(proposeFieldMappingStep)
+  .then(approveFieldMappingStep)
   .commit();
