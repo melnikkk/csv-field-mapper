@@ -1,10 +1,13 @@
 import { createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 import { analyzeCsvStep } from "./steps/analyze-csv-step";
-import { templateSchema } from "./steps/shared/schemas/templateSchema";
+import {
+  templateSchema,
+  Template,
+} from "./steps/shared/schemas/templateSchema";
 import { proposeFieldMappingStep } from "./steps/propose-field-mapping-step";
 import { approveFieldMappingStep } from "./steps/approve-field-mapping-step";
-import { mappingResultsSchema } from "./steps/shared/schemas/mappingSchema";
+import { mapApprovedFieldsStep } from "./steps/map-approved-fields-step";
 
 export const csvFieldMapperWorkflow = createWorkflow({
   id: "csv-field-mapper-workflow",
@@ -13,7 +16,7 @@ export const csvFieldMapperWorkflow = createWorkflow({
     template: templateSchema,
   }),
   outputSchema: z.object({
-    approvedMappings: mappingResultsSchema,
+    outputFilePath: z.string().optional(),
   }),
 });
 
@@ -28,13 +31,19 @@ csvFieldMapperWorkflow
     sampleRows: inputData.sampleRows,
     templateColumns: getInitData<{
       filePath: string;
-      template: z.infer<typeof templateSchema>;
+      template: Template;
     }>().template.columns,
     aliasDictionary: getInitData<{
       filePath: string;
-      template: z.infer<typeof templateSchema>;
+      template: Template;
     }>().template.aliasDictionary,
   }))
   .then(proposeFieldMappingStep)
   .then(approveFieldMappingStep)
+  .map(async ({ inputData, getInitData }) => ({
+    filePath: getInitData<{ filePath: string }>().filePath,
+    aborted: inputData.aborted,
+    approvedMappings: inputData.approvedMappings,
+  }))
+  .then(mapApprovedFieldsStep)
   .commit();

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
 
-export const resumepproveFieldMappingStepSchema = z.discriminatedUnion(
+export const resumeApproveFieldMappingStepSchema = z.discriminatedUnion(
   "action",
   [
     z.object({

@@ -1,7 +1,7 @@
 import { createStep } from "@mastra/core/workflows";
 import { z } from "zod";
 import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
-import { resumepproveFieldMappingStepSchema } from "./schema";
+import { resumeApproveFieldMappingStepSchema } from "./schema";
 
 export const approveFieldMappingStep = createStep({
   id: "approve-field-mapping-step",
@@ -13,7 +13,7 @@ export const approveFieldMappingStep = createStep({
     aborted: z.boolean(),
   }),
   suspendSchema: z.object({ mappingResults: mappingResultsSchema }),
-  resumeSchema: resumepproveFieldMappingStepSchema,
+  resumeSchema: resumeApproveFieldMappingStepSchema,
   execute: async ({ inputData, suspend, resumeData }) => {
     if (resumeData) {
       if (resumeData.action === "abort") {

@@ -20,3 +20,4 @@ export const templateSchema = z.object({
 
 export type TemplateColumns = z.infer<typeof templateColumnsSchema>;
 export type AliasDictionary = z.infer<typeof aliasDictionarySchema>;
+export type Template = z.infer<typeof templateSchema>;
