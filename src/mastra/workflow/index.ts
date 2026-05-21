@@ -6,8 +6,8 @@ import {
   Template,
 } from "./steps/shared/schemas/templateSchema";
 import { proposeFieldMappingStep } from "./steps/propose-field-mapping-step";
-import { approveFieldMappingStep } from "./steps/approve-field-mapping-step";
-import { mapApprovedFieldsStep } from "./steps/map-approved-fields-step";
+import { approveFieldMappingStep } from "./steps/apply-field-mapping-step";
+import { mapApprovedFieldsStep } from "./steps/apply-field-mapping-step";
 
 export const csvFieldMapperWorkflow = createWorkflow({
   id: "csv-field-mapper-workflow",

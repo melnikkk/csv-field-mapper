@@ -7,7 +7,7 @@ import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
 import { generateOutputFilePath } from "./utils";
 
 export const mapApprovedFieldsStep = createStep({
-  id: "map-approved-fields-step",
+  id: "apply-field-mapping-step",
   inputSchema: z.object({
     aborted: z.boolean(),
     filePath: z.string(),
