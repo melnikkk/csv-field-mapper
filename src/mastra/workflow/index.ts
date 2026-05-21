@@ -5,9 +5,9 @@ import {
   templateSchema,
   Template,
 } from "./steps/shared/schemas/templateSchema";
-import { proposeFieldMappingStep } from "./steps/propose-field-mapping-step";
-import { approveFieldMappingStep } from "./steps/apply-field-mapping-step";
-import { mapApprovedFieldsStep } from "./steps/apply-field-mapping-step";
+import { proposeColumnMappingStep } from "./steps/propose-column-mapping-step";
+import { approveColumnMappingStep } from "./steps/approve-column-mapping-step";
+import { applyColumnMappingStep } from "./steps/apply-column-mapping-step";
 
 export const csvFieldMapperWorkflow = createWorkflow({
   id: "csv-field-mapper-workflow",
@@ -38,12 +38,12 @@ csvFieldMapperWorkflow
       template: Template;
     }>().template.aliasDictionary,
   }))
-  .then(proposeFieldMappingStep)
-  .then(approveFieldMappingStep)
+  .then(proposeColumnMappingStep)
+  .then(approveColumnMappingStep)
   .map(async ({ inputData, getInitData }) => ({
     filePath: getInitData<{ filePath: string }>().filePath,
     aborted: inputData.aborted,
     approvedMappings: inputData.approvedMappings,
   }))
-  .then(mapApprovedFieldsStep)
+  .then(applyColumnMappingStep)
   .commit();

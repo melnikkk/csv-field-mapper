@@ -5,7 +5,7 @@ export interface CsvHeaderWithSamples {
   samples: Array<string>;
 }
 
-export const buildFieldMappingPrompt = (
+export const buildColumnMappingPrompt = (
   unresolvedHeadersWithsSamples: Array<CsvHeaderWithSamples>,
   templateColumns: TemplateColumns,
 ): string => {

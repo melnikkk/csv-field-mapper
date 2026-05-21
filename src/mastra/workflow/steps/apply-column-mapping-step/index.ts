@@ -6,8 +6,8 @@ import { z } from "zod";
 import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
 import { generateOutputFilePath } from "./utils";
 
-export const mapApprovedFieldsStep = createStep({
-  id: "apply-field-mapping-step",
+export const applyColumnMappingStep = createStep({
+  id: "apply-column-mapping-step",
   inputSchema: z.object({
     aborted: z.boolean(),
     filePath: z.string(),

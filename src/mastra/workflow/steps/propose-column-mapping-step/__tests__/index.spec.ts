@@ -21,7 +21,7 @@ mock.module("../../../models", () => ({
   geminiFlash: "mock-gemini",
 }));
 
-const { proposeFieldMappingStep } = await import("../index");
+const { proposeColumnMappingStep } = await import("../index");
 
 const templateColumns = [
   { title: "First Name", required: true },
@@ -36,9 +36,9 @@ type ExecuteInput = {
 };
 
 const execute = (inputData: ExecuteInput) =>
-  (proposeFieldMappingStep as any).execute({ inputData });
+  (proposeColumnMappingStep as any).execute({ inputData });
 
-describe("proposeFieldMappingStep", () => {
+describe("proposeColumnMappingStep", () => {
   beforeEach(() => mockGenerateText.mockClear());
 
   describe("when all columns are resolved by the alias dictionary", () => {
