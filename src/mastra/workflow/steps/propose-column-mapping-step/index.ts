@@ -13,14 +13,14 @@ import {
 } from "./utils";
 import { rowSchema, rowsSchema } from "../shared/schemas/rowsSchema";
 import { geminiFlash } from "../../../models";
-import { buildFieldMappingPrompt } from "./prompts";
+import { buildColumnMappingPrompt } from "./prompts";
 import {
   MappingResults,
   mappingResultsSchema,
 } from "../shared/schemas/mappingSchema";
 
-export const proposeFieldMappingStep = createStep({
-  id: "propose-field-mapping",
+export const proposeColumnMappingStep = createStep({
+  id: "propose-column-mapping",
   inputSchema: z.object({
     headerRow: rowSchema,
     sampleRows: rowsSchema,
@@ -56,7 +56,7 @@ export const proposeFieldMappingStep = createStep({
     const { output: suggestions } = await generateText({
       model: geminiFlash,
       output: Output.object({ schema: llmMapSuggestionSchema }),
-      prompt: buildFieldMappingPrompt(
+      prompt: buildColumnMappingPrompt(
         unresolvedHeadersWithSamples,
         templateColumns,
       ),

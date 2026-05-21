@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { readFile, rm, writeFile } from "fs/promises";
 import { join } from "path";
-import { mapApprovedFieldsStep } from "../";
+import { applyColumnMappingStep } from "../";
 
 type StepOutput = { outputFilePath?: string };
 
@@ -16,13 +16,13 @@ function runStep(inputData: {
     confidence: number;
   }>;
 }): Promise<StepOutput> {
-  return mapApprovedFieldsStep.execute({
+  return applyColumnMappingStep.execute({
     inputData,
     bail: (r: unknown) => r,
   } as any) as Promise<StepOutput>;
 }
 
-describe("mapApprovedFieldsStep", () => {
+describe("applyColumnMappingStep", () => {
   describe("aborted workflow", () => {
     it("returns undefined outputFilePath without writing a file", async () => {
       const result = await runStep({

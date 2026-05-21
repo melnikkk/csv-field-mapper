@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { buildFieldMappingPrompt } from "../prompts";
+import { buildColumnMappingPrompt } from "../prompts";
 
-describe("buildFieldMappingPrompt", () => {
+describe("buildColumnMappingPrompt", () => {
   it("includes each CSV header in the prompt", () => {
-    const prompt = buildFieldMappingPrompt(
+    const prompt = buildColumnMappingPrompt(
       [{ header: "first_name", samples: [] }],
       [{ title: "Name", required: true }],
     );
@@ -12,7 +12,7 @@ describe("buildFieldMappingPrompt", () => {
   });
 
   it("includes sample values in parentheses when present", () => {
-    const prompt = buildFieldMappingPrompt(
+    const prompt = buildColumnMappingPrompt(
       [{ header: "first_name", samples: ["Alice", "Bob"] }],
       [{ title: "Name", required: true }],
     );
@@ -21,7 +21,7 @@ describe("buildFieldMappingPrompt", () => {
   });
 
   it("omits samples section when samples are empty", () => {
-    const prompt = buildFieldMappingPrompt(
+    const prompt = buildColumnMappingPrompt(
       [{ header: "first_name", samples: [] }],
       [{ title: "Name", required: true }],
     );
@@ -30,7 +30,7 @@ describe("buildFieldMappingPrompt", () => {
   });
 
   it("includes template column titles", () => {
-    const prompt = buildFieldMappingPrompt(
+    const prompt = buildColumnMappingPrompt(
       [{ header: "col", samples: [] }],
       [
         { title: "Name", required: true },
@@ -43,7 +43,7 @@ describe("buildFieldMappingPrompt", () => {
   });
 
   it("marks required columns with (required)", () => {
-    const prompt = buildFieldMappingPrompt(
+    const prompt = buildColumnMappingPrompt(
       [{ header: "col", samples: [] }],
       [{ title: "Name", required: true }],
     );
@@ -52,7 +52,7 @@ describe("buildFieldMappingPrompt", () => {
   });
 
   it("does not mark optional columns with (required)", () => {
-    const prompt = buildFieldMappingPrompt(
+    const prompt = buildColumnMappingPrompt(
       [{ header: "col", samples: [] }],
       [{ title: "Email", required: false }],
     );
@@ -62,7 +62,7 @@ describe("buildFieldMappingPrompt", () => {
   });
 
   it("includes instruction to set templateColumn null for low-confidence matches", () => {
-    const prompt = buildFieldMappingPrompt([], []);
+    const prompt = buildColumnMappingPrompt([], []);
 
     expect(prompt).toContain("null");
   });
