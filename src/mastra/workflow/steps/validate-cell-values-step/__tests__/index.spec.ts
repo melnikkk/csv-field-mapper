@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { access, rm, writeFile } from "fs/promises";
+import { access, rm, writeFile, readFile } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { randomUUID } from "crypto";
 import Papa from "papaparse";
 import { validateCellValuesStep } from "../";
+import { CellValueValidationStatus } from "../constants";
 
 type StepOutput = {
   validatedFilePath: string;
@@ -35,9 +36,9 @@ async function createInputFile(rows: Array<Array<string>>): Promise<string> {
 async function parseOutputFile(
   filePath: string,
 ): Promise<Array<Array<string>>> {
-  const { readFile } = await import("fs/promises");
   const content = await readFile(filePath, "utf-8");
-  const { data } = Papa.parse<string[]>(content, {
+
+  const { data } = Papa.parse<Array<string>>(content, {
     header: false,
     skipEmptyLines: true,
   });
@@ -50,7 +51,7 @@ function runStep(inputData: {
 }): Promise<StepOutput> {
   return validateCellValuesStep.execute({
     inputData,
-    bail: (r: unknown) => r,
+    bail: (reason: unknown) => reason,
   } as any) as Promise<StepOutput>;
 }
 
@@ -142,7 +143,7 @@ describe("validateCellValuesStep", () => {
         rowIndex: 0,
         columnTitle: "Email",
         originalValue: "not-an-email",
-        status: "needsReview",
+        status: CellValueValidationStatus.NEEDS_REVIEW,
       });
     });
 
@@ -195,7 +196,7 @@ describe("validateCellValuesStep", () => {
         columnTitle: "Status",
         originalValue: "  ACTIVE  ",
         fixedValue: "active",
-        status: "autoFixed",
+        status: CellValueValidationStatus.AUTO_FIXED,
       });
     });
 
@@ -240,7 +241,7 @@ describe("validateCellValuesStep", () => {
         rowIndex: 0,
         columnTitle: "Status",
         originalValue: "  UNKNOWN  ",
-        status: "needsReview",
+        status: CellValueValidationStatus.NEEDS_REVIEW,
       });
     });
 

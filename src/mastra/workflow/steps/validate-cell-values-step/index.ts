@@ -1,16 +1,16 @@
 import { z } from "zod";
 import { createStep } from "@mastra/core/workflows";
-import { readFile, rm, writeFile } from "fs/promises";
+import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import { join } from "path";
-import { tmpdir } from "os";
 import { randomUUID } from "crypto";
 import Papa from "papaparse";
 import { templateColumnsSchema } from "../shared/schemas/templateSchema";
 import {
   cellValidationResultsSchema,
-  type CellValidationResult,
+  type CellValidationResults,
 } from "../shared/schemas/validationSchema";
 import { applyFixer, runValidators } from "./utils";
+import { CellValueValidationStatus } from "./constants";
 
 export const validateCellValuesStep = createStep({
   id: "validate-cell-values-step",
@@ -35,15 +35,15 @@ export const validateCellValuesStep = createStep({
     await rm(mappedFilePath, { force: true });
 
     const [headers = [], ...dataRows] = data;
-    const columnByTitle = new Map(
+    const templateColumnByTitle = new Map(
       templateColumns.map((col) => [col.title, col]),
     );
     const outputRows = dataRows.map((row) => [...row]);
-    const autoFixed: CellValidationResult[] = [];
-    const needsReview: CellValidationResult[] = [];
+    const autoFixed: CellValidationResults = [];
+    const needsReview: CellValidationResults = [];
 
-    for (let colIdx = 0; colIdx < headers.length; colIdx++) {
-      const column = columnByTitle.get(headers[colIdx]);
+    for (let columnIndex = 0; columnIndex < headers.length; columnIndex++) {
+      const column = templateColumnByTitle.get(headers[columnIndex]);
 
       if (!column?.validators?.length) {
         continue;
@@ -51,8 +51,8 @@ export const validateCellValuesStep = createStep({
 
       const { validators, fixerStrategy } = column;
 
-      for (let rowIdx = 0; rowIdx < outputRows.length; rowIdx++) {
-        const originalValue = outputRows[rowIdx][colIdx] ?? "";
+      for (let rowIndex = 0; rowIndex < outputRows.length; rowIndex++) {
+        const originalValue = outputRows[rowIndex][columnIndex] ?? "";
         const failedRules = runValidators(originalValue, validators);
 
         if (failedRules.length === 0) {
@@ -63,13 +63,13 @@ export const validateCellValuesStep = createStep({
           const fixedValue = applyFixer(originalValue, fixerStrategy);
 
           if (runValidators(fixedValue, validators).length === 0) {
-            outputRows[rowIdx][colIdx] = fixedValue;
+            outputRows[rowIndex][columnIndex] = fixedValue;
             autoFixed.push({
-              rowIndex: rowIdx,
-              columnTitle: headers[colIdx],
+              rowIndex: rowIndex,
+              columnTitle: headers[columnIndex],
               originalValue,
               fixedValue,
-              status: "autoFixed",
+              status: CellValueValidationStatus.AUTO_FIXED,
               failedRules,
             });
 
@@ -78,17 +78,19 @@ export const validateCellValuesStep = createStep({
         }
 
         needsReview.push({
-          rowIndex: rowIdx,
-          columnTitle: headers[colIdx],
+          rowIndex: rowIndex,
+          columnTitle: headers[columnIndex],
           originalValue,
-          status: "needsReview",
+          status: CellValueValidationStatus.NEEDS_REVIEW,
           failedRules,
         });
       }
     }
 
+    const outputsDir = join(import.meta.dirname, "../..", "outputs");
+    await mkdir(outputsDir, { recursive: true });
     const validatedFilePath = join(
-      tmpdir(),
+      outputsDir,
       `csv-mapper-validated-${randomUUID()}.csv`,
     );
 

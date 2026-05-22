@@ -9,6 +9,7 @@ import { proposeColumnMappingStep } from "./steps/propose-column-mapping-step";
 import { approveColumnMappingStep } from "./steps/approve-column-mapping-step";
 import { applyColumnMappingStep } from "./steps/apply-column-mapping-step";
 import { validateCellValuesStep } from "./steps/validate-cell-values-step";
+import { proposeCellValuesFixesStep } from "./steps/propose-cell-values-fixes-step";
 
 export const csvFieldMapperWorkflow = createWorkflow({
   id: "csv-field-mapper-workflow",
@@ -17,7 +18,7 @@ export const csvFieldMapperWorkflow = createWorkflow({
     template: templateSchema,
   }),
   outputSchema: z.object({
-    outputFilePath: z.string().optional(),
+    outputFilePath: z.string(),
   }),
 });
 
@@ -51,7 +52,10 @@ csvFieldMapperWorkflow
     templateColumns: getInitData<{ template: Template }>().template.columns,
   }))
   .then(validateCellValuesStep)
-  .map(async () => ({
-    outputFilePath: undefined as string | undefined,
+  .map(async ({ inputData, getInitData }) => ({
+    needsReview: inputData.needsReview,
+    validatedFilePath: inputData.validatedFilePath,
+    templateColumns: getInitData<{ template: Template }>().template.columns,
   }))
+  .then(proposeCellValuesFixesStep)
   .commit();
