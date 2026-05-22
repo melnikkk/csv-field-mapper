@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { proposeColumnMappingStep } from "../index";
 
 type LlmMapping = {
   csvHeader: string;
@@ -7,7 +8,7 @@ type LlmMapping = {
 };
 
 const mockGenerateText = mock(() =>
-  Promise.resolve({ output: { mappings: [] as LlmMapping[] } }),
+  Promise.resolve({ output: { mappings: [] as Array<LlmMapping> } }),
 );
 
 mock.module("ai", () => ({
@@ -21,18 +22,16 @@ mock.module("../../../models", () => ({
   geminiFlash: "mock-gemini",
 }));
 
-const { proposeColumnMappingStep } = await import("../index");
-
 const templateColumns = [
   { title: "First Name", required: true },
   { title: "Last Name", required: true },
 ];
 
 type ExecuteInput = {
-  headerRow: string[];
-  sampleRows: string[][];
+  headerRow: Array<string>;
+  sampleRows: Array<Array<string>>;
   templateColumns: typeof templateColumns;
-  aliasDictionary?: Record<string, string[]>;
+  aliasDictionary?: Record<string, Array<string>>;
 };
 
 const execute = (inputData: ExecuteInput) =>
