@@ -8,6 +8,7 @@ import {
 import { proposeColumnMappingStep } from "./steps/propose-column-mapping-step";
 import { approveColumnMappingStep } from "./steps/approve-column-mapping-step";
 import { applyColumnMappingStep } from "./steps/apply-column-mapping-step";
+import { validateCellValuesStep } from "./steps/validate-cell-values-step";
 
 export const csvFieldMapperWorkflow = createWorkflow({
   id: "csv-field-mapper-workflow",
@@ -42,8 +43,15 @@ csvFieldMapperWorkflow
   .then(approveColumnMappingStep)
   .map(async ({ inputData, getInitData }) => ({
     filePath: getInitData<{ filePath: string }>().filePath,
-    aborted: inputData.aborted,
     approvedMappings: inputData.approvedMappings,
   }))
   .then(applyColumnMappingStep)
+  .map(async ({ inputData, getInitData }) => ({
+    mappedFilePath: inputData.mappedFilePath,
+    templateColumns: getInitData<{ template: Template }>().template.columns,
+  }))
+  .then(validateCellValuesStep)
+  .map(async () => ({
+    outputFilePath: undefined as string | undefined,
+  }))
   .commit();

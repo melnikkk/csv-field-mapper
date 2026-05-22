@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { readFile, rm, writeFile } from "fs/promises";
 import { join } from "path";
+import Papa from "papaparse";
 import { applyColumnMappingStep } from "../";
 
-type StepOutput = { outputFilePath?: string };
+type StepOutput = { mappedFilePath: string };
 
 const SAMPLES_DIR = join(import.meta.dir, "../../../../../../samples");
 
 function runStep(inputData: {
-  aborted: boolean;
   filePath: string;
   approvedMappings: Array<{
     templateColumn: { title: string; required: boolean };
@@ -22,22 +22,20 @@ function runStep(inputData: {
   } as any) as Promise<StepOutput>;
 }
 
-describe("applyColumnMappingStep", () => {
-  describe("aborted workflow", () => {
-    it("returns undefined outputFilePath without writing a file", async () => {
-      const result = await runStep({
-        aborted: true,
-        filePath: join(SAMPLES_DIR, "well-formed.csv"),
-        approvedMappings: [],
-      });
-
-      expect(result.outputFilePath).toBeUndefined();
-    });
+async function parseOutput(result: StepOutput) {
+  const content = await readFile(result.mappedFilePath, "utf-8");
+  const { data } = Papa.parse<string[]>(content, {
+    header: false,
+    skipEmptyLines: true,
   });
+  const [headers = [], ...rows] = data;
+  return { headers, rows };
+}
 
-  describe("output file creation", () => {
+describe("applyColumnMappingStep", () => {
+  describe("mapped rows in file", () => {
     const tmpInput = join(SAMPLES_DIR, "tmp-map-basic.csv");
-    let outputFilePath: string | undefined;
+    let result: StepOutput;
 
     beforeAll(async () => {
       await writeFile(
@@ -46,8 +44,7 @@ describe("applyColumnMappingStep", () => {
         "utf-8",
       );
 
-      const result = await runStep({
-        aborted: false,
+      result = await runStep({
         filePath: tmpInput,
         approvedMappings: [
           {
@@ -67,57 +64,40 @@ describe("applyColumnMappingStep", () => {
           },
         ],
       });
-      outputFilePath = result.outputFilePath;
     });
 
     afterAll(async () => {
       await rm(tmpInput, { force: true });
-
-      if (outputFilePath) {
-        await rm(outputFilePath, { force: true });
-      }
+      await rm(result.mappedFilePath, { force: true });
     });
 
-    it("returns the path to the written file", () => {
-      expect(outputFilePath).toBeString();
-      expect(outputFilePath).toContain("tmp-map-basic-mapped.csv");
+    it("returns a file path", () => {
+      expect(result.mappedFilePath).toBeString();
     });
 
-    it("creates the output file on disk", async () => {
-      const content = await readFile(outputFilePath!, "utf-8");
-
-      expect(content).toBeTruthy();
+    it("uses template column titles as headers", async () => {
+      const { headers } = await parseOutput(result);
+      expect(headers).toContain("Product Name");
+      expect(headers).toContain("Price");
+      expect(headers).toContain("SKU");
     });
 
-    it("renames CSV headers to template column titles", async () => {
-      const content = await readFile(outputFilePath!, "utf-8");
-      const headerLine = content.split("\n")[0];
-
-      expect(headerLine).toContain("Product Name");
-      expect(headerLine).toContain("Price");
-      expect(headerLine).toContain("SKU");
-    });
-
-    it("does not include original CSV header names in output", async () => {
-      const content = await readFile(outputFilePath!, "utf-8");
-      const headerLine = content.split("\n")[0];
-
-      expect(headerLine).not.toContain("name");
-      expect(headerLine).not.toContain("price");
-      expect(headerLine).not.toContain("sku");
+    it("does not include original CSV header names", async () => {
+      const { headers } = await parseOutput(result);
+      expect(headers).not.toContain("name");
+      expect(headers).not.toContain("price");
+      expect(headers).not.toContain("sku");
     });
 
     it("preserves all data rows", async () => {
-      const content = await readFile(outputFilePath!, "utf-8");
-      const lines = content.trim().split("\n");
-
-      expect(lines).toHaveLength(3);
+      const { rows } = await parseOutput(result);
+      expect(rows).toHaveLength(2);
     });
   });
 
   describe("column ordering", () => {
     const tmpInput = join(SAMPLES_DIR, "tmp-map-order.csv");
-    let outputFilePath: string | undefined;
+    let result: StepOutput;
 
     beforeAll(async () => {
       await writeFile(
@@ -126,8 +106,7 @@ describe("applyColumnMappingStep", () => {
         "utf-8",
       );
 
-      const result = await runStep({
-        aborted: false,
+      result = await runStep({
         filePath: tmpInput,
         approvedMappings: [
           {
@@ -147,35 +126,27 @@ describe("applyColumnMappingStep", () => {
           },
         ],
       });
-      outputFilePath = result.outputFilePath;
     });
 
     afterAll(async () => {
       await rm(tmpInput, { force: true });
-
-      if (outputFilePath) {
-        await rm(outputFilePath, { force: true });
-      }
+      await rm(result.mappedFilePath, { force: true });
     });
 
-    it("writes columns in mapping order, not original CSV order", async () => {
-      const content = await readFile(outputFilePath!, "utf-8");
-      const headerLine = content.split("\n")[0].trim();
-
-      expect(headerLine).toBe("Price,SKU,Product Name");
+    it("writes headers in mapping order, not original CSV order", async () => {
+      const { headers } = await parseOutput(result);
+      expect(headers).toEqual(["Price", "SKU", "Product Name"]);
     });
 
-    it("writes row values aligned to their reordered column positions", async () => {
-      const content = await readFile(outputFilePath!, "utf-8");
-      const dataLine = content.trim().split("\n")[1].trim();
-
-      expect(dataLine).toBe("9.99,WGT-001,Widget A");
+    it("aligns row values to their reordered column positions", async () => {
+      const { rows } = await parseOutput(result);
+      expect(rows[0]).toEqual(["9.99", "WGT-001", "Widget A"]);
     });
   });
 
   describe("column filtering", () => {
     const tmpInput = join(SAMPLES_DIR, "tmp-map-filter.csv");
-    let outputFilePath: string | undefined;
+    let result: StepOutput;
 
     beforeAll(async () => {
       await writeFile(
@@ -183,8 +154,8 @@ describe("applyColumnMappingStep", () => {
         "name,price,sku,quantity\nWidget A,9.99,WGT-001,100",
         "utf-8",
       );
-      const result = await runStep({
-        aborted: false,
+
+      result = await runStep({
         filePath: tmpInput,
         approvedMappings: [
           {
@@ -204,35 +175,26 @@ describe("applyColumnMappingStep", () => {
           },
         ],
       });
-      outputFilePath = result.outputFilePath;
     });
 
     afterAll(async () => {
       await rm(tmpInput, { force: true });
-
-      if (outputFilePath) {
-        await rm(outputFilePath, { force: true });
-      }
-    });
-
-    it("excludes CSV columns not present in approved mappings", async () => {
-      const content = await readFile(outputFilePath!, "utf-8");
-
-      expect(content).not.toContain("quantity");
+      await rm(result.mappedFilePath, { force: true });
     });
 
     it("excludes template columns with no csvHeader", async () => {
-      const content = await readFile(outputFilePath!, "utf-8");
-      const headerLine = content.split("\n")[0];
-
-      expect(headerLine).not.toContain("SKU");
+      const { headers } = await parseOutput(result);
+      expect(headers).not.toContain("SKU");
     });
 
     it("outputs only the two fully mapped columns", async () => {
-      const content = await readFile(outputFilePath!, "utf-8");
-      const headerLine = content.split("\n")[0].trim();
+      const { headers } = await parseOutput(result);
+      expect(headers).toEqual(["Product Name", "Price"]);
+    });
 
-      expect(headerLine).toBe("Product Name,Price");
+    it("excludes data from unmapped CSV columns", async () => {
+      const { rows } = await parseOutput(result);
+      expect(rows[0]).toEqual(["Widget A", "9.99"]);
     });
   });
 });

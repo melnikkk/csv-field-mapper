@@ -10,21 +10,20 @@ export const approveColumnMappingStep = createStep({
   }),
   outputSchema: z.object({
     approvedMappings: mappingResultsSchema,
-    aborted: z.boolean(),
   }),
   suspendSchema: z.object({ mappingResults: mappingResultsSchema }),
   resumeSchema: resumeApproveColumnMappingStepSchema,
-  execute: async ({ inputData, suspend, resumeData }) => {
+  execute: async ({ inputData, suspend, resumeData, bail }) => {
     if (resumeData) {
       if (resumeData.action === "abort") {
-        return { approvedMappings: [], aborted: true };
+        return bail({ outputFilePath: undefined });
       }
 
       if (resumeData.action === "revise") {
         return suspend({ mappingResults: resumeData.correctedMappings });
       }
 
-      return { approvedMappings: inputData.mappingResults, aborted: false };
+      return { approvedMappings: inputData.mappingResults };
     }
 
     return suspend({ mappingResults: inputData.mappingResults });

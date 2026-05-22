@@ -1,62 +1,52 @@
 import { createStep } from "@mastra/core/workflows";
-import { mkdir, readFile, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { readFile, writeFile } from "fs/promises";
+import { join } from "path";
+import { tmpdir } from "os";
+import { randomUUID } from "crypto";
 import Papa from "papaparse";
 import { z } from "zod";
 import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
-import { generateOutputFilePath } from "./utils";
 
 export const applyColumnMappingStep = createStep({
   id: "apply-column-mapping-step",
   inputSchema: z.object({
-    aborted: z.boolean(),
     filePath: z.string(),
     approvedMappings: mappingResultsSchema,
   }),
   outputSchema: z.object({
-    outputFilePath: z.string().optional(),
+    mappedFilePath: z.string(),
   }),
   execute: async ({ inputData }) => {
-    const { aborted, filePath, approvedMappings } = inputData;
-
-    if (aborted) {
-      return { outputFilePath: undefined };
-    }
-
-    const outputFilePath = generateOutputFilePath(filePath);
-
-    await mkdir(dirname(outputFilePath), { recursive: true });
+    const { filePath, approvedMappings } = inputData;
 
     const content = await readFile(filePath, "utf-8");
-    const { data } = Papa.parse<Array<string>>(content, {
+    const { data } = Papa.parse<string[]>(content, {
       header: false,
       skipEmptyLines: true,
     });
 
     const [headerRow = [], ...dataRows] = data;
-
     const headerIndex = new Map(headerRow.map((header, i) => [header, i]));
 
     const activeMappings = approvedMappings.filter(
       (mapping) => mapping.csvHeader !== undefined,
     );
 
-    const outputHeaders = activeMappings.map(
+    const headers = activeMappings.map(
       (mapping) => mapping.templateColumn.title,
     );
 
-    const outputRows = dataRows.map((row) =>
+    const rows = dataRows.map((row) =>
       activeMappings.map((mapping) => {
         const idx = headerIndex.get(mapping.csvHeader!);
-
         return idx !== undefined ? (row[idx] ?? "") : "";
       }),
     );
 
-    const csv = Papa.unparse([outputHeaders, ...outputRows]);
+    const mappedFilePath = join(tmpdir(), `csv-mapper-${randomUUID()}.csv`);
 
-    await writeFile(outputFilePath, csv, "utf-8");
+    await writeFile(mappedFilePath, Papa.unparse([headers, ...rows]), "utf-8");
 
-    return { outputFilePath };
+    return { mappedFilePath };
   },
 });
