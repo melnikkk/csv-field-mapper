@@ -13,32 +13,35 @@ This is a **Mastra** project written in TypeScript. Mastra is a framework for bu
 ## Commands
 
 ```bash
-bun run dev # Start Mastra Studio at localhost:4111 (long-running, use a separate terminal)
+bun run dev   # Start Mastra Studio at localhost:4111 (long-running, use a separate terminal)
 bun run build # Build a production-ready server
+bun test      # Run unit tests
 ```
 
 ## Project Structure
 
-| Folder                 | Description                                                                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/mastra`           | Entry point for all Mastra-related code and configuration.                                                                               |
-| `src/mastra/agents`    | Define and configure your agents - their behavior, goals, and tools.                                                                     |
-| `src/mastra/workflows` | Define multi-step workflows that orchestrate agents and tools together.                                                                  |
-| `src/mastra/tools`     | Create reusable tools that your agents can call                                                                                          |
-| `src/mastra/mcp`       | (Optional) Implement custom MCP servers to share your tools with external agents                                                         |
-| `src/mastra/scorers`   | (Optional) Define scorers for evaluating agent performance over time                                                                     |
-| `src/mastra/public`    | (Optional) Contents are copied into the `.build/output` directory during the build process, making them available for serving at runtime |
+| Path                                                        | Description                                                             |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `src/mastra/index.ts`                                       | Mastra instance — registers `csvFieldMapperWorkflow` and LibSQL storage |
+| `src/mastra/models.ts`                                      | Shared LLM model exports (Gemini Flash via `@ai-sdk/google`)            |
+| `src/mastra/workflow/index.ts`                              | Workflow definition and step chain                                      |
+| `src/mastra/workflow/steps/analyze-csv-step/`               | Parse CSV, enforce size/encoding limits, extract headers                |
+| `src/mastra/workflow/steps/propose-column-mapping-step/`    | Alias dict lookup → LLM fallback for column mapping                     |
+| `src/mastra/workflow/steps/approve-column-mapping-step/`    | Suspend/resume for human review; supports approve/revise/abort          |
+| `src/mastra/workflow/steps/apply-column-mapping-step/`      | Rewrite CSV with approved column mappings                               |
+| `src/mastra/workflow/steps/validate-cell-values-step/`      | Per-cell validation + auto-fix via `fixerStrategy`                      |
+| `src/mastra/workflow/steps/propose-cell-values-fixes-step/` | LLM-assisted fix proposals for cells that couldn't be auto-fixed        |
+| `src/mastra/workflow/steps/shared/schemas/`                 | Shared Zod schemas: template, mapping, rows, validation                 |
+| `src/mastra/public/outputs/`                                | Runtime output CSVs (intermediate mapped + final validated)             |
+| `samples/`                                                  | Test CSVs: well-formed, aliased, large, special chars                   |
 
 ### Top-level files
 
-Top-level files define how your Mastra project is configured, built, and connected to its environment.
-
-| File                  | Description                                                                                                       |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `src/mastra/index.ts` | Central entry point where you configure and initialize Mastra.                                                    |
-| `.env.example`        | Template for environment variables - copy and rename to `.env` to add your secret [model provider](/models) keys. |
-| `package.json`        | Defines project metadata, dependencies, and available bun scripts.                                                |
-| `tsconfig.json`       | Configures TypeScript options such as path aliases, compiler settings, and build output.                          |
+| File            | Description                                                       |
+| --------------- | ----------------------------------------------------------------- |
+| `.env.example`  | Copy to `.env` and set `GOOGLE_GENERATIVE_AI_API_KEY`             |
+| `package.json`  | Defines project metadata, dependencies, and available bun scripts |
+| `tsconfig.json` | TypeScript configuration                                          |
 
 ## Boundaries
 
