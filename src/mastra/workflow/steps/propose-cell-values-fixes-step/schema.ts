@@ -9,5 +9,3 @@ export const llmCellFixSuggestionSchema = z.object({
     }),
   ),
 });
-
-export type LlmCellFixSuggestion = z.infer<typeof llmCellFixSuggestionSchema>;
