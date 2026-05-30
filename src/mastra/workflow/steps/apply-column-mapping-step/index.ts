@@ -2,6 +2,7 @@ import { createStep } from "@mastra/core/workflows";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import { getOutputsDirPath } from "../shared/utils/getOutputsDirPath";
 import Papa from "papaparse";
 import { z } from "zod";
 import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
@@ -42,7 +43,7 @@ export const applyColumnMappingStep = createStep({
       }),
     );
 
-    const outputsDir = join(import.meta.dirname, "../..", "outputs");
+    const outputsDir = getOutputsDirPath();
     await mkdir(outputsDir, { recursive: true });
     const mappedFilePath = join(outputsDir, `csv-mapper-${randomUUID()}.csv`);
 
