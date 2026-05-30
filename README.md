@@ -1,10 +1,10 @@
 # CSV Mapping & Validation Workflow
 
-A Mastra workflow that accepts an arbitrary CSV, maps its columns to a known schema, suspends for human confirmation on ambiguous mappings, validates all cell values, and proposes AI-assisted fixes for any cells that fail validation.
+A Mastra workflow that accepts an arbitrary CSV, maps its columns to a known schema, suspends for human confirmation on ambiguous mappings, validates all cell values, proposes AI-assisted fixes for any cells that fail validation, and suspends again for human approval before writing the final output.
 
 ## Why a workflow, not an agent
 
-The execution path is fully deterministic: parse → map → [suspend for review] → apply → validate → propose fixes. The LLM is invoked at exactly two points (fuzzy column matching and cell value fix suggestions). No dynamic tool selection needed.
+The execution path is fully deterministic: parse → map → [suspend] → apply → validate → propose fixes → [suspend] → write. The LLM is invoked at exactly two points (fuzzy column matching and cell value fix suggestions). No dynamic tool selection needed.
 
 ## Tech Stack
 
@@ -31,9 +31,13 @@ src/mastra/
 │       ├── propose-column-mapping-step/  # Alias dict → LLM fallback for column mapping
 │       ├── approve-column-mapping-step/  # Suspend/resume for human mapping review
 │       ├── apply-column-mapping-step/    # Rewrite CSV with approved column mappings
-│       ├── validate-cell-values-step/    # Per-cell validation + auto-fix application
-│       ├── propose-cell-values-fixes-step/ # LLM-assisted fix proposals for failed cells
-│       └── shared/schemas/           # Shared Zod schemas (template, mapping, validation)
+│       ├── validate-cell-values-step/        # Per-cell validation + auto-fix application
+│       ├── propose-cell-values-fixes-step/   # LLM-assisted fix proposals for failed cells
+│       ├── approve-cell-values-fixes-step/   # Suspend/resume for human fix approval
+│       ├── apply-cell-values-fixes-step/     # Apply approved fixes, write final CSV
+│       └── shared/
+│           ├── schemas/                      # Shared Zod schemas (template, mapping, validation)
+│           └── utils/getOutputsDirPath.ts    # Shared outputs dir path util
 samples/                              # Test CSVs: well-formed, aliased, large, special chars
 ```
 
@@ -52,7 +56,11 @@ samples/                              # Test CSVs: well-formed, aliased, large, 
 
 **Step 5 — `validate-cell-values`**: Runs per-cell validators defined on each template column. Cells that fail but can be auto-fixed (via `fixerStrategy`) are corrected in place; remaining failures are flagged as `needs-review`.
 
-**Step 6 — `propose-cell-values-fixes`**: For cells that could not be auto-fixed, calls Gemini Flash to suggest corrected values. Returns the final validated CSV path alongside the proposed fix list.
+**Step 6 — `propose-cell-values-fixes`**: For cells that could not be auto-fixed, calls Gemini Flash to suggest corrected values. If there are no `needs-review` cells, this step is a no-op and no LLM call is made.
+
+**Step 7 — `approve-cell-values-fixes`**: Suspends the workflow and presents the proposed fixes to the user. If no fixes were proposed, the suspension is skipped. Supports three resume actions: `approve` (accept all suggestions), `revise` (supply corrected values), or `abort`.
+
+**Step 8 — `apply-cell-values-fixes`**: Applies the approved fixes to the validated CSV by row index and column name, deletes the intermediate validated file, and writes the final output to `public/outputs/`. If there are no applicable fixes, the validated file is returned as-is.
 
 ## Template Schema
 

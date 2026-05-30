@@ -10,6 +10,8 @@ import { approveColumnMappingStep } from "./steps/approve-column-mapping-step";
 import { applyColumnMappingStep } from "./steps/apply-column-mapping-step";
 import { validateCellValuesStep } from "./steps/validate-cell-values-step";
 import { proposeCellValuesFixesStep } from "./steps/propose-cell-values-fixes-step";
+import { approveCellValuesFixesStep } from "./steps/approve-cell-values-fixes-step";
+import { applyCellValuesFixesStep } from "./steps/apply-cell-values-fixes-step";
 
 export const csvFieldMapperWorkflow = createWorkflow({
   id: "csv-field-mapper-workflow",
@@ -58,4 +60,6 @@ csvFieldMapperWorkflow
     templateColumns: getInitData<{ template: Template }>().template.columns,
   }))
   .then(proposeCellValuesFixesStep)
+  .then(approveCellValuesFixesStep)
+  .then(applyCellValuesFixesStep)
   .commit();

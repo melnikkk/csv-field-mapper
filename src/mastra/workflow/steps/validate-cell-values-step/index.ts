@@ -3,6 +3,7 @@ import { createStep } from "@mastra/core/workflows";
 import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import { getOutputsDirPath } from "../shared/utils/getOutputsDirPath";
 import Papa from "papaparse";
 import { templateColumnsSchema } from "../shared/schemas/templateSchema";
 import {
@@ -87,7 +88,7 @@ export const validateCellValuesStep = createStep({
       }
     }
 
-    const outputsDir = join(import.meta.dirname, "../..", "outputs");
+    const outputsDir = getOutputsDirPath();
     await mkdir(outputsDir, { recursive: true });
     const validatedFilePath = join(
       outputsDir,
