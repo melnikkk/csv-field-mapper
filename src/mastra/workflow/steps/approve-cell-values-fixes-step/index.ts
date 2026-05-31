@@ -16,18 +16,22 @@ export const approveCellValuesFixesStep = createStep({
   suspendSchema: z.object({ proposedFixes: cellValidationResultsSchema }),
   resumeSchema: resumeApproveCellValuesFixesStepSchema,
   execute: async ({ inputData, suspend, resumeData, bail }) => {
+    const { validatedFilePath, proposedFixes } = inputData;
+
     if (!resumeData) {
-      if (inputData.proposedFixes.length === 0) {
+      if (proposedFixes.length === 0) {
         return {
           approvedFixes: [],
-          validatedFilePath: inputData.validatedFilePath,
+          validatedFilePath: validatedFilePath,
         };
       }
 
-      return suspend({ proposedFixes: inputData.proposedFixes });
+      return suspend({ proposedFixes: proposedFixes });
     }
 
-    if (resumeData.action === "abort") {
+    const { action } = resumeData;
+
+    if (action === "abort") {
       return bail({ outputFilePath: undefined });
     }
 
@@ -36,6 +40,6 @@ export const approveCellValuesFixesStep = createStep({
         ? resumeData.correctedFixes
         : inputData.proposedFixes;
 
-    return { approvedFixes, validatedFilePath: inputData.validatedFilePath };
+    return { approvedFixes, validatedFilePath: validatedFilePath };
   },
 });
