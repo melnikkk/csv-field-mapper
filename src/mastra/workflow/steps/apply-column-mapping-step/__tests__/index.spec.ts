@@ -4,6 +4,28 @@ import { join } from "path";
 import Papa from "papaparse";
 import { applyColumnMappingStep } from "../";
 
+type Mapping = {
+  templateColumn: { title: string; required: boolean };
+  csvHeader?: string;
+  confidence: number;
+};
+
+function runStepRaw(inputData: {
+  filePath: string;
+  approvedMappings: Array<Mapping>;
+}): Promise<unknown> {
+  let bailArg: unknown;
+  return applyColumnMappingStep
+    .execute({
+      inputData,
+      bail: (r: unknown) => {
+        bailArg = r;
+        return r;
+      },
+    } as any)
+    .then((result) => bailArg ?? result);
+}
+
 type StepOutput = { mappedFilePath: string };
 
 const SAMPLES_DIR = join(import.meta.dir, "../../../../../../samples");
@@ -195,6 +217,90 @@ describe("applyColumnMappingStep", () => {
     it("excludes data from unmapped CSV columns", async () => {
       const { rows } = await parseOutput(result);
       expect(rows[0]).toEqual(["Widget A", "9.99"]);
+    });
+  });
+
+  describe("required column enforcement", () => {
+    const tmpInput = join(SAMPLES_DIR, "tmp-map-required.csv");
+
+    beforeAll(async () => {
+      await writeFile(tmpInput, "name,price\nWidget A,9.99", "utf-8");
+    });
+
+    afterAll(async () => {
+      await rm(tmpInput, { force: true });
+    });
+
+    it("bails when a required column has no csvHeader", async () => {
+      const result = await runStepRaw({
+        filePath: tmpInput,
+        approvedMappings: [
+          {
+            templateColumn: { title: "Product Name", required: true },
+            csvHeader: "name",
+            confidence: 1,
+          },
+          {
+            templateColumn: { title: "SKU", required: true },
+            csvHeader: undefined,
+            confidence: 0,
+          },
+        ],
+      });
+
+      expect((result as any).mappedFilePath).toBeUndefined();
+    });
+
+    it("includes missing required column titles in bail reason", async () => {
+      const result = await runStepRaw({
+        filePath: tmpInput,
+        approvedMappings: [
+          {
+            templateColumn: { title: "Product Name", required: true },
+            csvHeader: "name",
+            confidence: 1,
+          },
+          {
+            templateColumn: { title: "SKU", required: true },
+            csvHeader: undefined,
+            confidence: 0,
+          },
+          {
+            templateColumn: { title: "Category", required: true },
+            csvHeader: undefined,
+            confidence: 0,
+          },
+        ],
+      });
+
+      expect((result as any).reason).toContain("SKU");
+      expect((result as any).reason).toContain("Category");
+    });
+
+    it("proceeds normally when all required columns are mapped and optional ones are not", async () => {
+      const result = await runStepRaw({
+        filePath: tmpInput,
+        approvedMappings: [
+          {
+            templateColumn: { title: "Product Name", required: true },
+            csvHeader: "name",
+            confidence: 1,
+          },
+          {
+            templateColumn: { title: "Price", required: true },
+            csvHeader: "price",
+            confidence: 1,
+          },
+          {
+            templateColumn: { title: "SKU", required: false },
+            csvHeader: undefined,
+            confidence: 0,
+          },
+        ],
+      });
+
+      expect((result as any).mappedFilePath).toBeString();
+      await rm((result as any).mappedFilePath, { force: true });
     });
   });
 });
