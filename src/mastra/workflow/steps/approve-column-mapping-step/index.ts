@@ -31,10 +31,9 @@ export const approveColumnMappingStep = createStep({
       return bail({ outputFilePath: undefined });
     }
 
-    if (action === "revise") {
-      return suspend({ mappingResults: resumeData.correctedMappings });
-    }
+    const approvedMappings =
+      action === "revise" ? resumeData.correctedMappings : mappingResults;
 
-    return { approvedMappings: mappingResults };
+    return { approvedMappings };
   },
 });

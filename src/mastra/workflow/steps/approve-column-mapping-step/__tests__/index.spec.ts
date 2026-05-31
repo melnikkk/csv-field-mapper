@@ -76,17 +76,32 @@ describe("approveColumnMappingStep", () => {
       expect(bail).toHaveBeenCalledWith({ outputFilePath: undefined });
     });
 
-    it("suspends with correctedMappings on revise action", async () => {
+    it("returns correctedMappings directly on revise action without re-suspending", async () => {
+      const original = [makeMapping(0.8)];
       const corrected = [makeMapping(1), makeMapping(1, "Email")];
       const suspend = mock(() => {});
 
-      await runExecute({
-        inputData: { mappingResults: [makeMapping(0.8)] },
+      const result = await runExecute({
+        inputData: { mappingResults: original },
         resumeData: { action: "revise", correctedMappings: corrected },
         suspend,
       });
 
-      expect(suspend).toHaveBeenCalledWith({ mappingResults: corrected });
+      expect(suspend).not.toHaveBeenCalled();
+      expect(result).toEqual({ approvedMappings: corrected });
+    });
+
+    it("does not return the original proposal when revise provides corrections", async () => {
+      const original = [makeMapping(0.5, "Name")];
+      const corrected = [makeMapping(1, "FullName")];
+
+      const result = await runExecute({
+        inputData: { mappingResults: original },
+        resumeData: { action: "revise", correctedMappings: corrected },
+      });
+
+      expect(result).not.toEqual({ approvedMappings: original });
+      expect(result).toEqual({ approvedMappings: corrected });
     });
 
     it("returns approvedMappings from inputData on approve action", async () => {
