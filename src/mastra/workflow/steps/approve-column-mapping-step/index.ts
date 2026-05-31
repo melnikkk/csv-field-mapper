@@ -2,6 +2,7 @@ import { createStep } from "@mastra/core/workflows";
 import { z } from "zod";
 import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
 import { resumeApproveColumnMappingStepSchema } from "./schema";
+import { isMappingResultsFullyConfident } from "./utils";
 
 export const approveColumnMappingStep = createStep({
   id: "approve-column-mapping-step",
@@ -14,18 +15,26 @@ export const approveColumnMappingStep = createStep({
   suspendSchema: z.object({ mappingResults: mappingResultsSchema }),
   resumeSchema: resumeApproveColumnMappingStepSchema,
   execute: async ({ inputData, suspend, resumeData, bail }) => {
-    if (resumeData) {
-      if (resumeData.action === "abort") {
-        return bail({ outputFilePath: undefined });
+    const { mappingResults } = inputData;
+
+    if (!resumeData) {
+      if (isMappingResultsFullyConfident(mappingResults)) {
+        return { approvedMappings: mappingResults };
       }
 
-      if (resumeData.action === "revise") {
-        return suspend({ mappingResults: resumeData.correctedMappings });
-      }
-
-      return { approvedMappings: inputData.mappingResults };
+      return suspend({ mappingResults: mappingResults });
     }
 
-    return suspend({ mappingResults: inputData.mappingResults });
+    const { action } = resumeData;
+
+    if (action === "abort") {
+      return bail({ outputFilePath: undefined });
+    }
+
+    if (action === "revise") {
+      return suspend({ mappingResults: resumeData.correctedMappings });
+    }
+
+    return { approvedMappings: mappingResults };
   },
 });
