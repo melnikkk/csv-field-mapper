@@ -16,8 +16,22 @@ export const applyColumnMappingStep = createStep({
   outputSchema: z.object({
     mappedFilePath: z.string(),
   }),
-  execute: async ({ inputData }) => {
+  execute: async ({ inputData, bail }) => {
     const { filePath, approvedMappings } = inputData;
+
+    const missingRequired = approvedMappings
+      .filter(
+        (mapping) =>
+          mapping.templateColumn.required && mapping.csvHeader === undefined,
+      )
+      .map((mapping) => mapping.templateColumn.title);
+
+    if (missingRequired.length > 0) {
+      return bail({
+        outputFilePath: undefined,
+        reason: `Required columns not mapped: ${missingRequired.join(", ")}`,
+      });
+    }
 
     const content = await readFile(filePath, "utf-8");
     const { data } = Papa.parse<string[]>(content, {

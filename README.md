@@ -52,7 +52,7 @@ samples/                              # Test CSVs: well-formed, aliased, large, 
 
 **Step 3 — `approve-column-mapping`**: Suspends the workflow and presents the proposed mappings to the user. Supports three resume actions: `approve`, `revise` (re-suspends with corrected mappings), or `abort`.
 
-**Step 4 — `apply-column-mapping`**: Rewrites the CSV using only the approved column mappings, producing a new intermediate file with template-aligned headers.
+**Step 4 — `apply-column-mapping`**: Validates that every `required: true` template column has a mapped CSV header — aborts with a descriptive message if any are missing. Then rewrites the CSV using only the approved column mappings, producing a new intermediate file with template-aligned headers. Non-required unmapped columns are silently dropped.
 
 **Step 5 — `validate-cell-values`**: Runs per-cell validators defined on each template column. Cells that fail but can be auto-fixed (via `fixerStrategy`) are corrected in place; remaining failures are flagged as `needs-review`.
 
@@ -71,7 +71,7 @@ The workflow is driven by a `Template` object passed as workflow input:
   maxFileSize: number,           // bytes
   columns: Array<{
     title: string,
-    required: boolean,
+    required: boolean,           // if true, workflow aborts when no CSV header maps to this column
     description?: string,
     validators?: ValidatorRule[],  // required, minLength, maxLength, regex, numeric, integer, date, boolean, enum, email, url
     fixerStrategy?: 'trim' | 'trimAndLower' | 'trimAndUpper' | 'normalizeWhitespace' | 'stripNonNumeric'
