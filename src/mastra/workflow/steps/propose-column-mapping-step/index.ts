@@ -62,8 +62,26 @@ export const proposeColumnMappingStep = createStep({
       ),
     });
 
+    const claimedCsvHeaders = new Set(
+      mappingResults
+        .filter((row) => row.csvHeader !== undefined)
+        .map((row) => row.csvHeader as string),
+    );
+
     for (const suggestion of suggestions.mappings) {
       if (!suggestion.templateColumnTitle) {
+        continue;
+      }
+
+      if (!headerRow.includes(suggestion.csvHeader)) {
+        continue;
+      }
+
+      if (suggestion.confidence < 0.4) {
+        continue;
+      }
+
+      if (claimedCsvHeaders.has(suggestion.csvHeader)) {
         continue;
       }
 
@@ -76,6 +94,7 @@ export const proposeColumnMappingStep = createStep({
       if (entry) {
         entry.csvHeader = suggestion.csvHeader;
         entry.confidence = suggestion.confidence;
+        claimedCsvHeaders.add(suggestion.csvHeader);
       }
     }
 
