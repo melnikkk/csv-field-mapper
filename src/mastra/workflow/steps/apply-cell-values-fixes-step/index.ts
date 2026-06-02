@@ -38,7 +38,7 @@ export const applyCellValuesFixesStep = createStep({
     for (const fix of applicableFixes) {
       const colIdx = headerIndex.get(fix.columnTitle);
 
-      if (colIdx !== undefined) {
+      if (colIdx !== undefined && fix.rowIndex < outputRows.length) {
         outputRows[fix.rowIndex][colIdx] = fix.fixedValue!;
       }
     }

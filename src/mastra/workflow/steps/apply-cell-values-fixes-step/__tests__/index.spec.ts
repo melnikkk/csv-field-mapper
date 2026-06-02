@@ -120,6 +120,21 @@ describe("applyCellValuesFixesStep", () => {
     expect(output).toContain("25");
   });
 
+  it("silently skips a fix whose rowIndex is out of bounds", async () => {
+    const inputPath = await writeTempCsv("Name,Age\nrow0,25\n");
+    const { outputFilePath } = await runExecute({
+      approvedFixes: [
+        makeFix({ rowIndex: 99, columnTitle: "Name", fixedValue: "oob" }),
+      ],
+      validatedFilePath: inputPath,
+    });
+    outputsToClean.push(outputFilePath);
+
+    const output = await readFile(outputFilePath, "utf-8");
+    expect(output).toContain("row0");
+    expect(output).not.toContain("oob");
+  });
+
   it("ignores fixes that reference an unknown column name", async () => {
     const inputPath = await writeTempCsv("Name,Age\nbad,25\n");
     const { outputFilePath } = await runExecute({
