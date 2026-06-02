@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, mock, it } from "bun:test";
 import { proposeColumnMappingStep } from "../index";
 
 type LlmMapping = {
@@ -41,7 +41,7 @@ describe("proposeColumnMappingStep", () => {
   beforeEach(() => mockGenerateText.mockClear());
 
   describe("when all columns are resolved by the alias dictionary", () => {
-    test("returns mapping results without calling the LLM", async () => {
+    it("returns mapping results without calling the LLM", async () => {
       const { mappingResults } = await execute({
         headerRow: ["first_name", "last_name"],
         sampleRows: [["Alice", "Smith"]],
@@ -61,7 +61,7 @@ describe("proposeColumnMappingStep", () => {
   });
 
   describe("when there are columns not resolved by the dictionary", () => {
-    test("calls the LLM with unresolved headers", async () => {
+    it("calls the LLM with unresolved headers", async () => {
       await execute({
         headerRow: ["fname", "last_name"],
         sampleRows: [],
@@ -72,7 +72,7 @@ describe("proposeColumnMappingStep", () => {
       expect(mockGenerateText).toHaveBeenCalledTimes(1);
     });
 
-    test("applies LLM suggestions for unmapped columns", async () => {
+    it("applies LLM suggestions for unmapped columns", async () => {
       mockGenerateText.mockImplementation(() =>
         Promise.resolve({
           output: {
@@ -102,7 +102,7 @@ describe("proposeColumnMappingStep", () => {
       expect(firstNameEntry?.confidence).toBe(0.9);
     });
 
-    test("skips LLM suggestion when templateColumnTitle is null", async () => {
+    it("skips LLM suggestion when templateColumnTitle is null", async () => {
       mockGenerateText.mockImplementation(() =>
         Promise.resolve({
           output: {
@@ -132,7 +132,7 @@ describe("proposeColumnMappingStep", () => {
       expect(firstNameEntry?.confidence).toBe(0);
     });
 
-    test("does not overwrite an already-mapped column with an LLM suggestion", async () => {
+    it("does not overwrite an already-mapped column with an LLM suggestion", async () => {
       mockGenerateText.mockImplementation(() =>
         Promise.resolve({
           output: {
@@ -163,6 +163,132 @@ describe("proposeColumnMappingStep", () => {
       );
       expect(lastNameEntry?.csvHeader).toBe("last_name");
       expect(lastNameEntry?.confidence).toBe(1);
+    });
+
+    it("ignores LLM suggestion when csvHeader is not in headerRow", async () => {
+      mockGenerateText.mockImplementation(() =>
+        Promise.resolve({
+          output: {
+            mappings: [
+              {
+                csvHeader: "nonexistent_column",
+                templateColumnTitle: "First Name",
+                confidence: 0.9,
+              },
+            ],
+          },
+        }),
+      );
+
+      const { mappingResults } = await execute({
+        headerRow: ["fname", "last_name"],
+        sampleRows: [],
+        templateColumns,
+        aliasDictionary: { "Last Name": ["last_name"] },
+      });
+
+      const firstNameEntry = mappingResults.find(
+        (r: { templateColumn: { title: string } }) =>
+          r.templateColumn.title === "First Name",
+      );
+      expect(firstNameEntry?.csvHeader).toBeUndefined();
+    });
+
+    it("ignores LLM suggestion when csvHeader is already claimed by another mapping (first-wins)", async () => {
+      mockGenerateText.mockImplementation(() =>
+        Promise.resolve({
+          output: {
+            mappings: [
+              {
+                csvHeader: "fname",
+                templateColumnTitle: "First Name",
+                confidence: 0.9,
+              },
+              {
+                csvHeader: "fname",
+                templateColumnTitle: "Last Name",
+                confidence: 0.8,
+              },
+            ],
+          },
+        }),
+      );
+
+      const { mappingResults } = await execute({
+        headerRow: ["fname"],
+        sampleRows: [],
+        templateColumns,
+      });
+
+      const firstNameEntry = mappingResults.find(
+        (r: { templateColumn: { title: string } }) =>
+          r.templateColumn.title === "First Name",
+      );
+      const lastNameEntry = mappingResults.find(
+        (r: { templateColumn: { title: string } }) =>
+          r.templateColumn.title === "Last Name",
+      );
+
+      expect(firstNameEntry?.csvHeader).toBe("fname");
+      expect(lastNameEntry?.csvHeader).toBeUndefined();
+    });
+
+    it("ignores LLM suggestion when confidence is below 0.4", async () => {
+      mockGenerateText.mockImplementation(() =>
+        Promise.resolve({
+          output: {
+            mappings: [
+              {
+                csvHeader: "fname",
+                templateColumnTitle: "First Name",
+                confidence: 0.39,
+              },
+            ],
+          },
+        }),
+      );
+
+      const { mappingResults } = await execute({
+        headerRow: ["fname", "last_name"],
+        sampleRows: [],
+        templateColumns,
+        aliasDictionary: { "Last Name": ["last_name"] },
+      });
+
+      const firstNameEntry = mappingResults.find(
+        (r: { templateColumn: { title: string } }) =>
+          r.templateColumn.title === "First Name",
+      );
+      expect(firstNameEntry?.csvHeader).toBeUndefined();
+    });
+
+    it("applies LLM suggestion when confidence is exactly 0.4", async () => {
+      mockGenerateText.mockImplementation(() =>
+        Promise.resolve({
+          output: {
+            mappings: [
+              {
+                csvHeader: "fname",
+                templateColumnTitle: "First Name",
+                confidence: 0.4,
+              },
+            ],
+          },
+        }),
+      );
+
+      const { mappingResults } = await execute({
+        headerRow: ["fname", "last_name"],
+        sampleRows: [],
+        templateColumns,
+        aliasDictionary: { "Last Name": ["last_name"] },
+      });
+
+      const firstNameEntry = mappingResults.find(
+        (r: { templateColumn: { title: string } }) =>
+          r.templateColumn.title === "First Name",
+      );
+      expect(firstNameEntry?.csvHeader).toBe("fname");
     });
   });
 });
