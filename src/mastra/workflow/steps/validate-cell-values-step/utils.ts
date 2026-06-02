@@ -50,8 +50,25 @@ export const checkRule = (
       return isNaN(n) || !Number.isInteger(n) ? "Must be a whole number" : null;
     }
 
-    case "date":
+    case "date": {
+      const DATE_FORMAT_PATTERNS: Record<string, RegExp> = {
+        "YYYY-MM-DD": /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/,
+        "MM/DD/YYYY": /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/,
+        "DD/MM/YYYY": /^(0[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/,
+        "YYYY-MM-DDTHH:mm:ss":
+          /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/,
+      };
+
+      if (rule.format) {
+        const pattern = DATE_FORMAT_PATTERNS[rule.format];
+
+        if (pattern) {
+          return pattern.test(value) ? null : "Must be a valid date";
+        }
+      }
+
       return isNaN(Date.parse(value)) ? "Must be a valid date" : null;
+    }
 
     case "boolean":
       const booleanValues = ["true", "false"];
@@ -96,7 +113,7 @@ export const applyFixer = (value: string, strategy: FixerStrategy): string => {
     case "normalizeWhitespace":
       return value.trim().replace(/\s+/g, " ");
     case "stripNonNumeric":
-      return value.replace(/[^\d.]/g, "");
+      return value.replace(/[^\d.-]/g, "");
   }
 };
 
