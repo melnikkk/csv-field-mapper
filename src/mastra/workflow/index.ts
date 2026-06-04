@@ -1,10 +1,5 @@
 import { createWorkflow } from "@mastra/core/workflows";
-import { z } from "zod";
 import { analyzeCsvStep } from "./steps/analyze-csv-step";
-import {
-  templateSchema,
-  Template,
-} from "./steps/shared/schemas/templateSchema";
 import { proposeColumnMappingStep } from "./steps/propose-column-mapping-step";
 import { approveColumnMappingStep } from "./steps/approve-column-mapping-step";
 import { applyColumnMappingStep } from "./steps/apply-column-mapping-step";
@@ -12,22 +7,16 @@ import { validateCellValuesStep } from "./steps/validate-cell-values-step";
 import { proposeCellValuesFixesStep } from "./steps/propose-cell-values-fixes-step";
 import { approveCellValuesFixesStep } from "./steps/approve-cell-values-fixes-step";
 import { applyCellValuesFixesStep } from "./steps/apply-cell-values-fixes-step";
-import { cellValidationResultsSchema } from "./steps/shared/schemas/validationSchema";
-import { mappingResultsSchema } from "./steps/shared/schemas/mappingSchema";
+import {
+  WorkflowInputData,
+  workflowInputDataSchema,
+} from "./shared/schemas/workflowInputSchema";
+import { workflowOutputSchema } from "./shared/schemas/workflowOutputSchema";
 
 export const csvFieldMapperWorkflow = createWorkflow({
   id: "csv-field-mapper-workflow",
-  inputSchema: z.object({
-    filePath: z.string().nonempty(),
-    template: templateSchema,
-  }),
-  outputSchema: z.object({
-    outputFilePath: z.string().optional(),
-    autoFixed: cellValidationResultsSchema.optional(),
-    appliedFixes: cellValidationResultsSchema.optional(),
-    approvedMappings: mappingResultsSchema.optional(),
-    reason: z.string().optional(),
-  }),
+  inputSchema: workflowInputDataSchema,
+  outputSchema: workflowOutputSchema,
 });
 
 csvFieldMapperWorkflow
@@ -39,26 +28,20 @@ csvFieldMapperWorkflow
   .map(async ({ inputData, getInitData }) => ({
     headerRow: inputData.headerRow,
     sampleRows: inputData.sampleRows,
-    templateColumns: getInitData<{
-      filePath: string;
-      template: Template;
-    }>().template.columns,
-    aliasDictionary: getInitData<{
-      filePath: string;
-      template: Template;
-    }>().template.aliasDictionary,
+    templateColumns: getInitData<WorkflowInputData>().template.columns,
+    aliasDictionary: getInitData<WorkflowInputData>().template.aliasDictionary,
   }))
   .then(proposeColumnMappingStep)
   .then(approveColumnMappingStep)
   .map(async ({ inputData, getInitData }) => ({
-    filePath: getInitData<{ filePath: string }>().filePath,
+    filePath: getInitData<WorkflowInputData>().filePath,
     approvedMappings: inputData.approvedMappings,
   }))
   .then(applyColumnMappingStep)
   .map(async ({ inputData, getInitData }) => ({
     mappedFilePath: inputData.mappedFilePath,
     approvedMappings: inputData.approvedMappings,
-    templateColumns: getInitData<{ template: Template }>().template.columns,
+    templateColumns: getInitData<WorkflowInputData>().template.columns,
   }))
   .then(validateCellValuesStep)
   .map(async ({ inputData, getInitData }) => ({
@@ -66,7 +49,7 @@ csvFieldMapperWorkflow
     autoFixed: inputData.autoFixed,
     approvedMappings: inputData.approvedMappings,
     validatedFilePath: inputData.validatedFilePath,
-    templateColumns: getInitData<{ template: Template }>().template.columns,
+    templateColumns: getInitData<WorkflowInputData>().template.columns,
   }))
   .then(proposeCellValuesFixesStep)
   .then(approveCellValuesFixesStep)

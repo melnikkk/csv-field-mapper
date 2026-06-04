@@ -3,7 +3,7 @@ import {
   getConfidentMappingResults,
   isMappingResultsFullyConfident,
 } from "../utils";
-import type { MappingResults } from "../../shared/schemas/mappingSchema";
+import type { MappingResults } from "../../../shared/schemas/mappingSchema";
 
 const makeMapping = (
   confidence: number,

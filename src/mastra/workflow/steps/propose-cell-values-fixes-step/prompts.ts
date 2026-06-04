@@ -2,11 +2,11 @@ import {
   ValidatorRule,
   TemplateColumn,
   TemplateColumns,
-} from "../shared/schemas/templateSchema";
+} from "../../shared/schemas/templateSchema";
 import {
   CellValidationResult,
   CellValidationResults,
-} from "../shared/schemas/validationSchema";
+} from "../../shared/schemas/validationSchema";
 
 const formatValidator = (rule: ValidatorRule): string => {
   switch (rule.type) {

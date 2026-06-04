@@ -1,4 +1,4 @@
-import { MappingResults } from "../shared/schemas/mappingSchema";
+import { MappingResults } from "../../shared/schemas/mappingSchema";
 
 export const getConfidentMappingResults = (mappingResults: MappingResults) =>
   mappingResults.filter(({ confidence }) => confidence === 1);

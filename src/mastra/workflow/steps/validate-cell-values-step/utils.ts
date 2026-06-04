@@ -1,7 +1,7 @@
 import type {
   FixerStrategy,
   ValidatorRule,
-} from "../shared/schemas/templateSchema";
+} from "../../shared/schemas/templateSchema";
 
 export const checkRule = (
   value: string,

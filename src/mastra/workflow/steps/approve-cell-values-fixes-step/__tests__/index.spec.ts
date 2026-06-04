@@ -1,7 +1,7 @@
 import { describe, it, expect, mock } from "bun:test";
 import { approveCellValuesFixesStep } from "../index";
 import { CellValueValidationStatus } from "../../validate-cell-values-step/constants";
-import type { CellValidationResult } from "../../shared/schemas/validationSchema";
+import type { CellValidationResult } from "../../../shared/schemas/validationSchema";
 
 const makeFix = (
   overrides?: Partial<CellValidationResult>,

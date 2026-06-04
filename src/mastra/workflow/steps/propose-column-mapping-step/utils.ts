@@ -1,10 +1,10 @@
 import {
   AliasDictionary,
   TemplateColumns,
-} from "../shared/schemas/templateSchema";
-import { Row, Rows } from "../shared/schemas/rowsSchema";
+} from "../../shared/schemas/templateSchema";
+import { Row, Rows } from "../../shared/schemas/rowsSchema";
 import { CsvHeaderWithSamples } from "./prompts";
-import { MappingResults } from "../shared/schemas/mappingSchema";
+import { MappingResults } from "../../shared/schemas/mappingSchema";
 
 export const mapColumnsBasedOnDictionary = (
   headerRow: Array<string>,

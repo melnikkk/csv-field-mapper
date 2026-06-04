@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { createStep } from "@mastra/core/workflows";
 import { generateText, Output } from "ai";
-import { cellValidationResultsSchema } from "../shared/schemas/validationSchema";
-import { templateColumnsSchema } from "../shared/schemas/templateSchema";
-import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
+import { cellValidationResultsSchema } from "../../shared/schemas/validationSchema";
+import { templateColumnsSchema } from "../../shared/schemas/templateSchema";
+import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { geminiFlash } from "../../../models";
 import { buildCellValuesFixesPrompt } from "./prompts";
 import { llmCellFixSuggestionSchema } from "./schema";

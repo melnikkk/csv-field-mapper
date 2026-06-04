@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
+import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 
 export const resumeApproveColumnMappingStepSchema = z.discriminatedUnion(
   "action",
