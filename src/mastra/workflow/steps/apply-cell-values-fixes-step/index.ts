@@ -6,23 +6,37 @@ import Papa from "papaparse";
 import { z } from "zod";
 import { getOutputsDirPath } from "../shared/utils/getOutputsDirPath";
 import { cellValidationResultsSchema } from "../shared/schemas/validationSchema";
+import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
 
 export const applyCellValuesFixesStep = createStep({
   id: "apply-cell-values-fixes-step",
   inputSchema: z.object({
     approvedFixes: cellValidationResultsSchema,
+    autoFixed: cellValidationResultsSchema,
+    approvedMappings: mappingResultsSchema,
     validatedFilePath: z.string(),
   }),
-  outputSchema: z.object({ outputFilePath: z.string() }),
+  outputSchema: z.object({
+    outputFilePath: z.string(),
+    autoFixed: cellValidationResultsSchema,
+    appliedFixes: cellValidationResultsSchema,
+    approvedMappings: mappingResultsSchema,
+  }),
   execute: async ({ inputData }) => {
-    const { approvedFixes, validatedFilePath } = inputData;
+    const { approvedFixes, autoFixed, approvedMappings, validatedFilePath } =
+      inputData;
 
     const applicableFixes = approvedFixes.filter(
       (fix) => fix.fixedValue !== undefined,
     );
 
     if (applicableFixes.length === 0) {
-      return { outputFilePath: validatedFilePath };
+      return {
+        autoFixed,
+        approvedMappings,
+        outputFilePath: validatedFilePath,
+        appliedFixes: [],
+      };
     }
 
     const content = await readFile(validatedFilePath, "utf-8");
@@ -58,6 +72,11 @@ export const applyCellValuesFixesStep = createStep({
       "utf-8",
     );
 
-    return { outputFilePath };
+    return {
+      outputFilePath,
+      autoFixed,
+      appliedFixes: applicableFixes,
+      approvedMappings,
+    };
   },
 });

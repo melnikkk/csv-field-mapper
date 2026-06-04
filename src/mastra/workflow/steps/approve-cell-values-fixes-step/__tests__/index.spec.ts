@@ -18,6 +18,8 @@ const makeFix = (
 const runExecute = (params: {
   inputData: {
     proposedFixes: CellValidationResult[];
+    autoFixed: CellValidationResult[];
+    approvedMappings: unknown[];
     validatedFilePath: string;
   };
   resumeData?: unknown;
@@ -37,27 +39,40 @@ describe("approveCellValuesFixesStep", () => {
       const suspend = mock(() => {});
 
       const result = await runExecute({
-        inputData: { proposedFixes: [], validatedFilePath: "/tmp/test.csv" },
+        inputData: {
+          proposedFixes: [],
+          autoFixed: [],
+          approvedMappings: [],
+          validatedFilePath: "/tmp/test.csv",
+        },
         suspend,
       });
 
       expect(suspend).not.toHaveBeenCalled();
       expect(result).toEqual({
         approvedFixes: [],
+        autoFixed: [],
+        approvedMappings: [],
         validatedFilePath: "/tmp/test.csv",
       });
     });
 
-    it("suspends with proposedFixes when there are fixes to review", async () => {
+    it("suspends with proposedFixes and autoFixed when there are fixes to review", async () => {
       const fixes = [makeFix()];
+      const autoFixed = [makeFix({ fixedValue: "auto" })];
       const suspend = mock(() => {});
 
       await runExecute({
-        inputData: { proposedFixes: fixes, validatedFilePath: "/tmp/test.csv" },
+        inputData: {
+          proposedFixes: fixes,
+          autoFixed,
+          approvedMappings: [],
+          validatedFilePath: "/tmp/test.csv",
+        },
         suspend,
       });
 
-      expect(suspend).toHaveBeenCalledWith({ proposedFixes: fixes });
+      expect(suspend).toHaveBeenCalledWith({ proposedFixes: fixes, autoFixed });
     });
   });
 
@@ -68,6 +83,8 @@ describe("approveCellValuesFixesStep", () => {
       await runExecute({
         inputData: {
           proposedFixes: [makeFix()],
+          autoFixed: [],
+          approvedMappings: [],
           validatedFilePath: "/tmp/test.csv",
         },
         resumeData: { action: "abort" },
@@ -81,12 +98,19 @@ describe("approveCellValuesFixesStep", () => {
       const fixes = [makeFix()];
 
       const result = await runExecute({
-        inputData: { proposedFixes: fixes, validatedFilePath: "/tmp/test.csv" },
+        inputData: {
+          proposedFixes: fixes,
+          autoFixed: [],
+          approvedMappings: [],
+          validatedFilePath: "/tmp/test.csv",
+        },
         resumeData: { action: "approve" },
       });
 
       expect(result).toEqual({
         approvedFixes: fixes,
+        autoFixed: [],
+        approvedMappings: [],
         validatedFilePath: "/tmp/test.csv",
       });
     });
@@ -98,6 +122,8 @@ describe("approveCellValuesFixesStep", () => {
       const result = await runExecute({
         inputData: {
           proposedFixes: original,
+          autoFixed: [],
+          approvedMappings: [],
           validatedFilePath: "/tmp/test.csv",
         },
         resumeData: { action: "revise", correctedFixes: corrected },
@@ -105,6 +131,8 @@ describe("approveCellValuesFixesStep", () => {
 
       expect(result).toEqual({
         approvedFixes: corrected,
+        autoFixed: [],
+        approvedMappings: [],
         validatedFilePath: "/tmp/test.csv",
       });
     });

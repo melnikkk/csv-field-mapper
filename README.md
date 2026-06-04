@@ -54,13 +54,13 @@ samples/                              # Test CSVs: well-formed, aliased, large, 
 
 **Step 4 — `apply-column-mapping`**: Validates that every `required: true` template column has a mapped CSV header — aborts with a descriptive message if any are missing. Then rewrites the CSV using only the approved column mappings, producing a new intermediate file with template-aligned headers. Non-required unmapped columns are silently dropped.
 
-**Step 5 — `validate-cell-values`**: Runs per-cell validators defined on each template column. Cells that fail but can be auto-fixed (via `fixerStrategy`) are corrected in place; remaining failures are flagged as `needs-review`.
+**Step 5 — `validate-cell-values`**: Runs per-cell validators defined on each template column. Cells that fail but can be auto-fixed (via `fixerStrategy`) are corrected in place and recorded in `autoFixed`; remaining failures are flagged as `needs-review`. Both lists are threaded through to the final output.
 
 **Step 6 — `propose-cell-values-fixes`**: For cells that could not be auto-fixed, calls Gemini Flash to suggest corrected values. If there are no `needs-review` cells, this step is a no-op and no LLM call is made.
 
-**Step 7 — `approve-cell-values-fixes`**: Suspends the workflow and presents the proposed fixes to the user. If no fixes were proposed, the suspension is skipped. Supports three resume actions: `approve` (accept all suggestions), `revise` (supply corrected values), or `abort`.
+**Step 7 — `approve-cell-values-fixes`**: Suspends the workflow and presents both the proposed fixes and the `autoFixed` list to the user, so the reviewer has full visibility into all mutations. If no fixes were proposed, the suspension is skipped. Supports three resume actions: `approve` (accept all suggestions), `revise` (supply corrected values), or `abort`.
 
-**Step 8 — `apply-cell-values-fixes`**: Applies the approved fixes to the validated CSV by row index and column name, deletes the intermediate validated file, and writes the final output to `public/outputs/`. If there are no applicable fixes, the validated file is returned as-is.
+**Step 8 — `apply-cell-values-fixes`**: Applies the approved fixes to the validated CSV by row index and column name, deletes the intermediate validated file, and writes the final output to `public/outputs/`. If there are no applicable fixes, the validated file is returned as-is. The workflow result includes `outputFilePath`, `autoFixed` (cells silently corrected during validation), `appliedFixes` (LLM-proposed fixes reviewed and approved by the human), and `approvedMappings` (the final column mapping decisions).
 
 ## Template Schema
 

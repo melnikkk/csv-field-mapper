@@ -12,20 +12,23 @@ import {
 } from "../shared/schemas/validationSchema";
 import { applyFixer, runValidators } from "./utils";
 import { CellValueValidationStatus } from "./constants";
+import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
 
 export const validateCellValuesStep = createStep({
   id: "validate-cell-values-step",
   inputSchema: z.object({
     mappedFilePath: z.string(),
     templateColumns: templateColumnsSchema,
+    approvedMappings: mappingResultsSchema,
   }),
   outputSchema: z.object({
     validatedFilePath: z.string(),
     autoFixed: cellValidationResultsSchema,
     needsReview: cellValidationResultsSchema,
+    approvedMappings: mappingResultsSchema,
   }),
   execute: async ({ inputData }) => {
-    const { mappedFilePath, templateColumns } = inputData;
+    const { mappedFilePath, templateColumns, approvedMappings } = inputData;
 
     const content = await readFile(mappedFilePath, "utf-8");
     const { data } = Papa.parse<Array<string>>(content, {
@@ -101,6 +104,6 @@ export const validateCellValuesStep = createStep({
       "utf-8",
     );
 
-    return { validatedFilePath, autoFixed, needsReview };
+    return { validatedFilePath, autoFixed, needsReview, approvedMappings };
   },
 });

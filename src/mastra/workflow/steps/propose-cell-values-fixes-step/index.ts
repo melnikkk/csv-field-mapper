@@ -3,6 +3,7 @@ import { createStep } from "@mastra/core/workflows";
 import { generateText, Output } from "ai";
 import { cellValidationResultsSchema } from "../shared/schemas/validationSchema";
 import { templateColumnsSchema } from "../shared/schemas/templateSchema";
+import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
 import { geminiFlash } from "../../../models";
 import { buildCellValuesFixesPrompt } from "./prompts";
 import { llmCellFixSuggestionSchema } from "./schema";
@@ -11,18 +12,33 @@ export const proposeCellValuesFixesStep = createStep({
   id: "propose-cell-values-fixes-step",
   inputSchema: z.object({
     needsReview: cellValidationResultsSchema,
+    autoFixed: cellValidationResultsSchema,
+    approvedMappings: mappingResultsSchema,
     templateColumns: templateColumnsSchema,
     validatedFilePath: z.string(),
   }),
   outputSchema: z.object({
     proposedFixes: cellValidationResultsSchema,
+    autoFixed: cellValidationResultsSchema,
+    approvedMappings: mappingResultsSchema,
     validatedFilePath: z.string(),
   }),
   execute: async ({ inputData }) => {
-    const { needsReview, templateColumns, validatedFilePath } = inputData;
+    const {
+      needsReview,
+      autoFixed,
+      approvedMappings,
+      templateColumns,
+      validatedFilePath,
+    } = inputData;
 
     if (needsReview.length === 0) {
-      return { proposedFixes: [], validatedFilePath };
+      return {
+        proposedFixes: [],
+        autoFixed,
+        approvedMappings,
+        validatedFilePath,
+      };
     }
 
     const { output: suggestions } = await generateText({
@@ -46,6 +62,6 @@ export const proposeCellValuesFixesStep = createStep({
         : cell;
     });
 
-    return { proposedFixes, validatedFilePath };
+    return { proposedFixes, autoFixed, approvedMappings, validatedFilePath };
   },
 });
