@@ -13,10 +13,12 @@ export const approveCellValuesFixesStep = createStep({
     validatedFilePath: z.string(),
   }),
   outputSchema: z.object({
-    approvedFixes: cellValidationResultsSchema,
-    autoFixed: cellValidationResultsSchema,
-    approvedMappings: mappingResultsSchema,
-    validatedFilePath: z.string(),
+    approvedFixes: cellValidationResultsSchema.optional(),
+    autoFixed: cellValidationResultsSchema.optional(),
+    approvedMappings: mappingResultsSchema.optional(),
+    validatedFilePath: z.string().optional(),
+    outputFilePath: z.string().optional(),
+    reason: z.string().optional(),
   }),
   suspendSchema: z.object({
     proposedFixes: cellValidationResultsSchema,
@@ -43,7 +45,10 @@ export const approveCellValuesFixesStep = createStep({
     const { action } = resumeData;
 
     if (action === "abort") {
-      return bail({ outputFilePath: undefined });
+      return bail({
+        outputFilePath: undefined,
+        reason: "User aborted cell value fixes",
+      });
     }
 
     const approvedFixes =
