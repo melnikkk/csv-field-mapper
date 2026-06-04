@@ -2,10 +2,10 @@ import { createStep } from "@mastra/core/workflows";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
-import { getOutputsDirPath } from "../shared/utils/getOutputsDirPath";
+import { getOutputsDirPath } from "../../shared/utils/getOutputsDirPath";
 import Papa from "papaparse";
 import { z } from "zod";
-import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
+import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 
 export const applyColumnMappingStep = createStep({
   id: "apply-column-mapping-step",

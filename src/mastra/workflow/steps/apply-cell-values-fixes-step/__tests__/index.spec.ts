@@ -5,7 +5,7 @@ import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import { randomUUID } from "crypto";
-import type { CellValidationResult } from "../../shared/schemas/validationSchema";
+import type { CellValidationResult } from "../../../shared/schemas/validationSchema";
 
 const makeFix = (
   overrides?: Partial<CellValidationResult>,

@@ -3,16 +3,16 @@ import { createStep } from "@mastra/core/workflows";
 import { mkdir, readFile, rm, writeFile } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
-import { getOutputsDirPath } from "../shared/utils/getOutputsDirPath";
+import { getOutputsDirPath } from "../../shared/utils/getOutputsDirPath";
 import Papa from "papaparse";
-import { templateColumnsSchema } from "../shared/schemas/templateSchema";
+import { templateColumnsSchema } from "../../shared/schemas/templateSchema";
 import {
   cellValidationResultsSchema,
   type CellValidationResults,
-} from "../shared/schemas/validationSchema";
+} from "../../shared/schemas/validationSchema";
 import { applyFixer, runValidators } from "./utils";
 import { CellValueValidationStatus } from "./constants";
-import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
+import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 
 export const validateCellValuesStep = createStep({
   id: "validate-cell-values-step",

@@ -4,9 +4,9 @@ import { join } from "path";
 import { randomUUID } from "crypto";
 import Papa from "papaparse";
 import { z } from "zod";
-import { getOutputsDirPath } from "../shared/utils/getOutputsDirPath";
-import { cellValidationResultsSchema } from "../shared/schemas/validationSchema";
-import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
+import { getOutputsDirPath } from "../../shared/utils/getOutputsDirPath";
+import { cellValidationResultsSchema } from "../../shared/schemas/validationSchema";
+import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 
 export const applyCellValuesFixesStep = createStep({
   id: "apply-cell-values-fixes-step",

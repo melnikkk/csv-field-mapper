@@ -1,6 +1,6 @@
 import { describe, it, expect, mock } from "bun:test";
 import { approveColumnMappingStep } from "../index";
-import type { MappingResults } from "../../shared/schemas/mappingSchema";
+import type { MappingResults } from "../../../shared/schemas/mappingSchema";
 
 const makeMapping = (
   confidence: number,

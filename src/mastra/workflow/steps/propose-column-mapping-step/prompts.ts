@@ -1,4 +1,4 @@
-import { TemplateColumns } from "../shared/schemas/templateSchema";
+import { TemplateColumns } from "../../shared/schemas/templateSchema";
 
 export interface CsvHeaderWithSamples {
   header: string;

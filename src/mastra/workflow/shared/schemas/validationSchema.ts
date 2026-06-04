@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CellValueValidationStatus } from "../../validate-cell-values-step/constants";
+import { CellValueValidationStatus } from "../../steps/validate-cell-values-step/constants";
 
 export const cellValidationResultSchema = z.object({
   rowIndex: z.number(),

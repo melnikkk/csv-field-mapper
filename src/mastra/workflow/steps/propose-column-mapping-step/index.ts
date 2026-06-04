@@ -4,20 +4,20 @@ import { generateText, Output } from "ai";
 import {
   templateColumnsSchema,
   aliasDictionarySchema,
-} from "../shared/schemas/templateSchema";
+} from "../../shared/schemas/templateSchema";
 import { llmMapSuggestionSchema } from "./schema";
 import {
   getUnmappedTemplateColumnTitles,
   getUnresolvedCsvHeadersWithSamples,
   mapColumnsBasedOnDictionary,
 } from "./utils";
-import { rowSchema, rowsSchema } from "../shared/schemas/rowsSchema";
+import { rowSchema, rowsSchema } from "../../shared/schemas/rowsSchema";
 import { geminiFlash } from "../../../models";
 import { buildColumnMappingPrompt } from "./prompts";
 import {
   MappingResults,
   mappingResultsSchema,
-} from "../shared/schemas/mappingSchema";
+} from "../../shared/schemas/mappingSchema";
 
 export const proposeColumnMappingStep = createStep({
   id: "propose-column-mapping",

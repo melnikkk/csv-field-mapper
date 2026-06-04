@@ -1,7 +1,7 @@
 import { createStep } from "@mastra/core/workflows";
 import { z } from "zod";
-import { cellValidationResultsSchema } from "../shared/schemas/validationSchema";
-import { mappingResultsSchema } from "../shared/schemas/mappingSchema";
+import { cellValidationResultsSchema } from "../../shared/schemas/validationSchema";
+import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { resumeApproveCellValuesFixesStepSchema } from "./schema";
 
 export const approveCellValuesFixesStep = createStep({
@@ -13,10 +13,10 @@ export const approveCellValuesFixesStep = createStep({
     validatedFilePath: z.string(),
   }),
   outputSchema: z.object({
-    approvedFixes: cellValidationResultsSchema.optional(),
-    autoFixed: cellValidationResultsSchema.optional(),
-    approvedMappings: mappingResultsSchema.optional(),
-    validatedFilePath: z.string().optional(),
+    approvedFixes: cellValidationResultsSchema,
+    autoFixed: cellValidationResultsSchema,
+    approvedMappings: mappingResultsSchema,
+    validatedFilePath: z.string(),
     outputFilePath: z.string().optional(),
     reason: z.string().optional(),
   }),
