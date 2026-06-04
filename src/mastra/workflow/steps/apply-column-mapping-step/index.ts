@@ -15,6 +15,7 @@ export const applyColumnMappingStep = createStep({
   }),
   outputSchema: z.object({
     mappedFilePath: z.string(),
+    approvedMappings: mappingResultsSchema,
   }),
   execute: async ({ inputData, bail }) => {
     const { filePath, approvedMappings } = inputData;
@@ -63,6 +64,6 @@ export const applyColumnMappingStep = createStep({
 
     await writeFile(mappedFilePath, Papa.unparse([headers, ...rows]), "utf-8");
 
-    return { mappedFilePath };
+    return { mappedFilePath, approvedMappings };
   },
 });

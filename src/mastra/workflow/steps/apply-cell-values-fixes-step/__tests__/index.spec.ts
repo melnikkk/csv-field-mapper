@@ -29,6 +29,8 @@ const writeTempCsv = async (content: string): Promise<string> => {
 
 const runExecute = (inputData: {
   approvedFixes: CellValidationResult[];
+  autoFixed: CellValidationResult[];
+  approvedMappings: unknown[];
   validatedFilePath: string;
 }) =>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,17 +48,31 @@ describe("applyCellValuesFixesStep", () => {
   it("returns original file path when approvedFixes is empty", async () => {
     const result = await runExecute({
       approvedFixes: [],
+      autoFixed: [],
+      approvedMappings: [],
       validatedFilePath: "/tmp/some.csv",
     });
-    expect(result).toEqual({ outputFilePath: "/tmp/some.csv" });
+    expect(result).toEqual({
+      outputFilePath: "/tmp/some.csv",
+      autoFixed: [],
+      appliedFixes: [],
+      approvedMappings: [],
+    });
   });
 
   it("returns original file path when no fix has a fixedValue", async () => {
     const result = await runExecute({
       approvedFixes: [makeFix({ fixedValue: undefined })],
+      autoFixed: [],
+      approvedMappings: [],
       validatedFilePath: "/tmp/some.csv",
     });
-    expect(result).toEqual({ outputFilePath: "/tmp/some.csv" });
+    expect(result).toEqual({
+      outputFilePath: "/tmp/some.csv",
+      autoFixed: [],
+      appliedFixes: [],
+      approvedMappings: [],
+    });
   });
 
   it("writes a new CSV file with the fixed value applied", async () => {
@@ -65,6 +81,8 @@ describe("applyCellValuesFixesStep", () => {
       approvedFixes: [
         makeFix({ rowIndex: 0, columnTitle: "Name", fixedValue: "fixed" }),
       ],
+      autoFixed: [],
+      approvedMappings: [],
       validatedFilePath: inputPath,
     });
     outputsToClean.push(outputFilePath);
@@ -80,6 +98,8 @@ describe("applyCellValuesFixesStep", () => {
       approvedFixes: [
         makeFix({ rowIndex: 0, columnTitle: "Name", fixedValue: "fixed" }),
       ],
+      autoFixed: [],
+      approvedMappings: [],
       validatedFilePath: inputPath,
     });
     outputsToClean.push(outputFilePath);
@@ -96,6 +116,8 @@ describe("applyCellValuesFixesStep", () => {
       approvedFixes: [
         makeFix({ rowIndex: 1, columnTitle: "Name", fixedValue: "fixed1" }),
       ],
+      autoFixed: [],
+      approvedMappings: [],
       validatedFilePath: inputPath,
     });
     outputsToClean.push(outputFilePath);
@@ -112,6 +134,8 @@ describe("applyCellValuesFixesStep", () => {
       approvedFixes: [
         makeFix({ rowIndex: 0, columnTitle: "Name", fixedValue: "fixed" }),
       ],
+      autoFixed: [],
+      approvedMappings: [],
       validatedFilePath: inputPath,
     });
     outputsToClean.push(outputFilePath);
@@ -126,6 +150,8 @@ describe("applyCellValuesFixesStep", () => {
       approvedFixes: [
         makeFix({ rowIndex: 99, columnTitle: "Name", fixedValue: "oob" }),
       ],
+      autoFixed: [],
+      approvedMappings: [],
       validatedFilePath: inputPath,
     });
     outputsToClean.push(outputFilePath);
@@ -141,6 +167,8 @@ describe("applyCellValuesFixesStep", () => {
       approvedFixes: [
         makeFix({ columnTitle: "DoesNotExist", fixedValue: "irrelevant" }),
       ],
+      autoFixed: [],
+      approvedMappings: [],
       validatedFilePath: inputPath,
     });
     outputsToClean.push(outputFilePath);

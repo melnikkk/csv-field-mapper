@@ -12,6 +12,8 @@ import { validateCellValuesStep } from "./steps/validate-cell-values-step";
 import { proposeCellValuesFixesStep } from "./steps/propose-cell-values-fixes-step";
 import { approveCellValuesFixesStep } from "./steps/approve-cell-values-fixes-step";
 import { applyCellValuesFixesStep } from "./steps/apply-cell-values-fixes-step";
+import { cellValidationResultsSchema } from "./steps/shared/schemas/validationSchema";
+import { mappingResultsSchema } from "./steps/shared/schemas/mappingSchema";
 
 export const csvFieldMapperWorkflow = createWorkflow({
   id: "csv-field-mapper-workflow",
@@ -21,6 +23,9 @@ export const csvFieldMapperWorkflow = createWorkflow({
   }),
   outputSchema: z.object({
     outputFilePath: z.string(),
+    autoFixed: cellValidationResultsSchema,
+    appliedFixes: cellValidationResultsSchema,
+    approvedMappings: mappingResultsSchema,
   }),
 });
 
@@ -51,11 +56,14 @@ csvFieldMapperWorkflow
   .then(applyColumnMappingStep)
   .map(async ({ inputData, getInitData }) => ({
     mappedFilePath: inputData.mappedFilePath,
+    approvedMappings: inputData.approvedMappings,
     templateColumns: getInitData<{ template: Template }>().template.columns,
   }))
   .then(validateCellValuesStep)
   .map(async ({ inputData, getInitData }) => ({
     needsReview: inputData.needsReview,
+    autoFixed: inputData.autoFixed,
+    approvedMappings: inputData.approvedMappings,
     validatedFilePath: inputData.validatedFilePath,
     templateColumns: getInitData<{ template: Template }>().template.columns,
   }))
