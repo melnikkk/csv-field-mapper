@@ -77,7 +77,7 @@ describe("approveCellValuesFixesStep", () => {
   });
 
   describe("with resumeData", () => {
-    it("bails with undefined outputFilePath on abort action", async () => {
+    it("bails with undefined outputFilePath and reason on abort action", async () => {
       const bail = mock(() => {});
 
       await runExecute({
@@ -91,7 +91,10 @@ describe("approveCellValuesFixesStep", () => {
         bail,
       });
 
-      expect(bail).toHaveBeenCalledWith({ outputFilePath: undefined });
+      expect(bail).toHaveBeenCalledWith({
+        outputFilePath: undefined,
+        reason: expect.any(String),
+      });
     });
 
     it("returns proposedFixes as approvedFixes on approve action", async () => {

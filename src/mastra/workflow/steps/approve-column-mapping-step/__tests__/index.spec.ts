@@ -64,7 +64,7 @@ describe("approveColumnMappingStep", () => {
   });
 
   describe("with resumeData", () => {
-    it("bails with undefined outputFilePath on abort action", async () => {
+    it("bails with undefined outputFilePath and reason on abort action", async () => {
       const bail = mock(() => {});
 
       await runExecute({
@@ -73,7 +73,10 @@ describe("approveColumnMappingStep", () => {
         bail,
       });
 
-      expect(bail).toHaveBeenCalledWith({ outputFilePath: undefined });
+      expect(bail).toHaveBeenCalledWith({
+        outputFilePath: undefined,
+        reason: expect.any(String),
+      });
     });
 
     it("returns correctedMappings directly on revise action without re-suspending", async () => {

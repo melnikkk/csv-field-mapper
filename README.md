@@ -60,7 +60,7 @@ samples/                              # Test CSVs: well-formed, aliased, large, 
 
 **Step 7 — `approve-cell-values-fixes`**: Suspends the workflow and presents both the proposed fixes and the `autoFixed` list to the user, so the reviewer has full visibility into all mutations. If no fixes were proposed, the suspension is skipped. Supports three resume actions: `approve` (accept all suggestions), `revise` (supply corrected values), or `abort`.
 
-**Step 8 — `apply-cell-values-fixes`**: Applies the approved fixes to the validated CSV by row index and column name, deletes the intermediate validated file, and writes the final output to `public/outputs/`. If there are no applicable fixes, the validated file is returned as-is. The workflow result includes `outputFilePath`, `autoFixed` (cells silently corrected during validation), `appliedFixes` (LLM-proposed fixes reviewed and approved by the human), and `approvedMappings` (the final column mapping decisions).
+**Step 8 — `apply-cell-values-fixes`**: Applies the approved fixes to the validated CSV by row index and column name, deletes the intermediate validated file, and writes the final output to `public/outputs/`. If there are no applicable fixes, the validated file is returned as-is. The workflow result includes `outputFilePath` (`string | undefined` — `undefined` when the workflow was aborted), `autoFixed` (cells silently corrected during validation), `appliedFixes` (LLM-proposed fixes reviewed and approved by the human), `approvedMappings` (the final column mapping decisions), and `reason` (a diagnostic string present only when the workflow bailed — e.g. user abort or missing required column).
 
 ## Template Schema
 

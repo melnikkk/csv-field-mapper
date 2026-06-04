@@ -22,10 +22,11 @@ export const csvFieldMapperWorkflow = createWorkflow({
     template: templateSchema,
   }),
   outputSchema: z.object({
-    outputFilePath: z.string(),
-    autoFixed: cellValidationResultsSchema,
-    appliedFixes: cellValidationResultsSchema,
-    approvedMappings: mappingResultsSchema,
+    outputFilePath: z.string().optional(),
+    autoFixed: cellValidationResultsSchema.optional(),
+    appliedFixes: cellValidationResultsSchema.optional(),
+    approvedMappings: mappingResultsSchema.optional(),
+    reason: z.string().optional(),
   }),
 });
 

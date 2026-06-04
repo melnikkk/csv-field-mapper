@@ -10,7 +10,9 @@ export const approveColumnMappingStep = createStep({
     mappingResults: mappingResultsSchema,
   }),
   outputSchema: z.object({
-    approvedMappings: mappingResultsSchema,
+    approvedMappings: mappingResultsSchema.optional(),
+    outputFilePath: z.string().optional(),
+    reason: z.string().optional(),
   }),
   suspendSchema: z.object({ mappingResults: mappingResultsSchema }),
   resumeSchema: resumeApproveColumnMappingStepSchema,
@@ -28,7 +30,10 @@ export const approveColumnMappingStep = createStep({
     const { action } = resumeData;
 
     if (action === "abort") {
-      return bail({ outputFilePath: undefined });
+      return bail({
+        outputFilePath: undefined,
+        reason: "User aborted column mapping",
+      });
     }
 
     const approvedMappings =
