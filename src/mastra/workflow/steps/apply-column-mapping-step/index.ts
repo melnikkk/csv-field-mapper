@@ -6,16 +6,19 @@ import { getOutputsDirPath } from "../../shared/utils/getOutputsDirPath";
 import Papa from "papaparse";
 import { z } from "zod";
 import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
+import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 
 export const applyColumnMappingStep = createStep({
   id: "apply-column-mapping-step",
   inputSchema: z.object({
     filePath: z.string(),
     approvedMappings: mappingResultsSchema,
+    _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   outputSchema: z.object({
     mappedFilePath: z.string(),
     approvedMappings: mappingResultsSchema,
+    _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   execute: async ({ inputData, bail }) => {
     const { filePath, approvedMappings } = inputData;
@@ -64,6 +67,10 @@ export const applyColumnMappingStep = createStep({
 
     await writeFile(mappedFilePath, Papa.unparse([headers, ...rows]), "utf-8");
 
-    return { mappedFilePath, approvedMappings };
+    return {
+      mappedFilePath,
+      approvedMappings,
+      _runMetrics: inputData._runMetrics,
+    };
   },
 });

@@ -7,6 +7,7 @@ import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { geminiFlash } from "../../../models";
 import { buildCellValuesFixesPrompt } from "./prompts";
 import { llmCellFixSuggestionSchema } from "./schema";
+import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 
 export const proposeCellValuesFixesStep = createStep({
   id: "propose-cell-values-fixes-step",
@@ -16,12 +17,14 @@ export const proposeCellValuesFixesStep = createStep({
     approvedMappings: mappingResultsSchema,
     templateColumns: templateColumnsSchema,
     validatedFilePath: z.string(),
+    _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   outputSchema: z.object({
     proposedFixes: cellValidationResultsSchema,
     autoFixed: cellValidationResultsSchema,
     approvedMappings: mappingResultsSchema,
     validatedFilePath: z.string(),
+    _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   execute: async ({ inputData }) => {
     const {
@@ -38,14 +41,25 @@ export const proposeCellValuesFixesStep = createStep({
         autoFixed,
         approvedMappings,
         validatedFilePath,
+        _runMetrics: {
+          ...inputData._runMetrics,
+          cellFixesLlm: {
+            llmCalled: false,
+            inputTokens: 0,
+            outputTokens: 0,
+            durationMs: 0,
+          },
+        },
       };
     }
 
-    const { output: suggestions } = await generateText({
+    const t0 = performance.now();
+    const { output: suggestions, usage } = await generateText({
       model: geminiFlash,
       output: Output.object({ schema: llmCellFixSuggestionSchema }),
       prompt: buildCellValuesFixesPrompt(needsReview, templateColumns),
     });
+    const durationMs = performance.now() - t0;
 
     const fixMap = new Map(
       suggestions.fixes.map((fix) => [
@@ -62,6 +76,20 @@ export const proposeCellValuesFixesStep = createStep({
         : cell;
     });
 
-    return { proposedFixes, autoFixed, approvedMappings, validatedFilePath };
+    return {
+      proposedFixes,
+      autoFixed,
+      approvedMappings,
+      validatedFilePath,
+      _runMetrics: {
+        ...inputData._runMetrics,
+        cellFixesLlm: {
+          llmCalled: true,
+          inputTokens: usage?.inputTokens ?? 0,
+          outputTokens: usage?.outputTokens ?? 0,
+          durationMs,
+        },
+      },
+    };
   },
 });

@@ -7,6 +7,7 @@ import { validateCellValuesStep } from "./steps/validate-cell-values-step";
 import { proposeCellValuesFixesStep } from "./steps/propose-cell-values-fixes-step";
 import { approveCellValuesFixesStep } from "./steps/approve-cell-values-fixes-step";
 import { applyCellValuesFixesStep } from "./steps/apply-cell-values-fixes-step";
+import { generateMetricsReportStep } from "./steps/generate-metrics-report-step";
 import {
   WorkflowInputData,
   workflowInputDataSchema,
@@ -36,12 +37,14 @@ csvFieldMapperWorkflow
   .map(async ({ inputData, getInitData }) => ({
     filePath: getInitData<WorkflowInputData>().filePath,
     approvedMappings: inputData.approvedMappings,
+    _runMetrics: inputData._runMetrics,
   }))
   .then(applyColumnMappingStep)
   .map(async ({ inputData, getInitData }) => ({
     mappedFilePath: inputData.mappedFilePath,
     approvedMappings: inputData.approvedMappings,
     templateColumns: getInitData<WorkflowInputData>().template.columns,
+    _runMetrics: inputData._runMetrics,
   }))
   .then(validateCellValuesStep)
   .map(async ({ inputData, getInitData }) => ({
@@ -50,8 +53,20 @@ csvFieldMapperWorkflow
     approvedMappings: inputData.approvedMappings,
     validatedFilePath: inputData.validatedFilePath,
     templateColumns: getInitData<WorkflowInputData>().template.columns,
+    _runMetrics: inputData._runMetrics,
   }))
   .then(proposeCellValuesFixesStep)
   .then(approveCellValuesFixesStep)
   .then(applyCellValuesFixesStep)
+  .map(async ({ inputData, getInitData }) => ({
+    outputFilePath: inputData.outputFilePath,
+    autoFixed: inputData.autoFixed,
+    appliedFixes: inputData.appliedFixes,
+    approvedMappings: inputData.approvedMappings,
+    _runMetrics: inputData._runMetrics,
+    startedAt: getInitData<WorkflowInputData>().startedAt,
+    totalTemplateColumns:
+      getInitData<WorkflowInputData>().template.columns.length,
+  }))
+  .then(generateMetricsReportStep)
   .commit();

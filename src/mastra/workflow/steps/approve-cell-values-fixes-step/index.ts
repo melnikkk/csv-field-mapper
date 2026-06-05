@@ -3,6 +3,7 @@ import { z } from "zod";
 import { cellValidationResultsSchema } from "../../shared/schemas/validationSchema";
 import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { resumeApproveCellValuesFixesStepSchema } from "./schema";
+import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 
 export const approveCellValuesFixesStep = createStep({
   id: "approve-cell-values-fixes-step",
@@ -11,6 +12,7 @@ export const approveCellValuesFixesStep = createStep({
     autoFixed: cellValidationResultsSchema,
     approvedMappings: mappingResultsSchema,
     validatedFilePath: z.string(),
+    _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   outputSchema: z.object({
     approvedFixes: cellValidationResultsSchema,
@@ -19,6 +21,7 @@ export const approveCellValuesFixesStep = createStep({
     validatedFilePath: z.string(),
     outputFilePath: z.string().optional(),
     reason: z.string().optional(),
+    _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   suspendSchema: z.object({
     proposedFixes: cellValidationResultsSchema,
@@ -36,6 +39,10 @@ export const approveCellValuesFixesStep = createStep({
           autoFixed,
           approvedMappings,
           validatedFilePath,
+          _runMetrics: {
+            ...inputData._runMetrics,
+            approveCellFixesHitl: { suspended: false },
+          },
         };
       }
 
@@ -56,6 +63,15 @@ export const approveCellValuesFixesStep = createStep({
         ? resumeData.correctedFixes
         : inputData.proposedFixes;
 
-    return { approvedFixes, autoFixed, approvedMappings, validatedFilePath };
+    return {
+      approvedFixes,
+      autoFixed,
+      approvedMappings,
+      validatedFilePath,
+      _runMetrics: {
+        ...inputData._runMetrics,
+        approveCellFixesHitl: { suspended: true },
+      },
+    };
   },
 });
