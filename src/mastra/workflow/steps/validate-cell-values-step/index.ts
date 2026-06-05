@@ -13,6 +13,7 @@ import {
 import { applyFixer, runValidators } from "./utils";
 import { CellValueValidationStatus } from "./constants";
 import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
+import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 
 export const validateCellValuesStep = createStep({
   id: "validate-cell-values-step",
@@ -20,12 +21,14 @@ export const validateCellValuesStep = createStep({
     mappedFilePath: z.string(),
     templateColumns: templateColumnsSchema,
     approvedMappings: mappingResultsSchema,
+    _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   outputSchema: z.object({
     validatedFilePath: z.string(),
     autoFixed: cellValidationResultsSchema,
     needsReview: cellValidationResultsSchema,
     approvedMappings: mappingResultsSchema,
+    _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   execute: async ({ inputData }) => {
     const { mappedFilePath, templateColumns, approvedMappings } = inputData;
@@ -104,6 +107,18 @@ export const validateCellValuesStep = createStep({
       "utf-8",
     );
 
-    return { validatedFilePath, autoFixed, needsReview, approvedMappings };
+    return {
+      validatedFilePath,
+      autoFixed,
+      needsReview,
+      approvedMappings,
+      _runMetrics: {
+        ...inputData._runMetrics,
+        cellValidationCounts: {
+          autoFixedCount: autoFixed.length,
+          needsReviewCount: needsReview.length,
+        },
+      },
+    };
   },
 });

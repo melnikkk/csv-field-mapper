@@ -7,6 +7,7 @@ import { z } from "zod";
 import { getOutputsDirPath } from "../../shared/utils/getOutputsDirPath";
 import { cellValidationResultsSchema } from "../../shared/schemas/validationSchema";
 import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
+import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 
 export const applyCellValuesFixesStep = createStep({
   id: "apply-cell-values-fixes-step",
@@ -15,12 +16,14 @@ export const applyCellValuesFixesStep = createStep({
     autoFixed: cellValidationResultsSchema,
     approvedMappings: mappingResultsSchema,
     validatedFilePath: z.string(),
+    _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   outputSchema: z.object({
     outputFilePath: z.string(),
     autoFixed: cellValidationResultsSchema,
     appliedFixes: cellValidationResultsSchema,
     approvedMappings: mappingResultsSchema,
+    _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   execute: async ({ inputData }) => {
     const { approvedFixes, autoFixed, approvedMappings, validatedFilePath } =
@@ -36,6 +39,7 @@ export const applyCellValuesFixesStep = createStep({
         approvedMappings,
         outputFilePath: validatedFilePath,
         appliedFixes: [],
+        _runMetrics: inputData._runMetrics,
       };
     }
 
@@ -77,6 +81,7 @@ export const applyCellValuesFixesStep = createStep({
       autoFixed,
       appliedFixes: applicableFixes,
       approvedMappings,
+      _runMetrics: inputData._runMetrics,
     };
   },
 });

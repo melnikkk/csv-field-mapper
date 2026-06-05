@@ -21,6 +21,7 @@ const runExecute = (params: {
     autoFixed: CellValidationResult[];
     approvedMappings: unknown[];
     validatedFilePath: string;
+    _runMetrics?: Record<string, unknown>;
   };
   resumeData?: unknown;
   suspend?: (payload: unknown) => unknown;
@@ -44,6 +45,7 @@ describe("approveCellValuesFixesStep", () => {
           autoFixed: [],
           approvedMappings: [],
           validatedFilePath: "/tmp/test.csv",
+          _runMetrics: {},
         },
         suspend,
       });
@@ -54,6 +56,10 @@ describe("approveCellValuesFixesStep", () => {
         autoFixed: [],
         approvedMappings: [],
         validatedFilePath: "/tmp/test.csv",
+        _runMetrics: { approveCellFixesHitl: { suspended: false } },
+      });
+      expect(result._runMetrics.approveCellFixesHitl).toEqual({
+        suspended: false,
       });
     });
 
@@ -68,6 +74,7 @@ describe("approveCellValuesFixesStep", () => {
           autoFixed,
           approvedMappings: [],
           validatedFilePath: "/tmp/test.csv",
+          _runMetrics: {},
         },
         suspend,
       });
@@ -86,6 +93,7 @@ describe("approveCellValuesFixesStep", () => {
           autoFixed: [],
           approvedMappings: [],
           validatedFilePath: "/tmp/test.csv",
+          _runMetrics: {},
         },
         resumeData: { action: "abort" },
         bail,
@@ -106,6 +114,7 @@ describe("approveCellValuesFixesStep", () => {
           autoFixed: [],
           approvedMappings: [],
           validatedFilePath: "/tmp/test.csv",
+          _runMetrics: {},
         },
         resumeData: { action: "approve" },
       });
@@ -115,6 +124,10 @@ describe("approveCellValuesFixesStep", () => {
         autoFixed: [],
         approvedMappings: [],
         validatedFilePath: "/tmp/test.csv",
+        _runMetrics: { approveCellFixesHitl: { suspended: true } },
+      });
+      expect(result._runMetrics.approveCellFixesHitl).toEqual({
+        suspended: true,
       });
     });
 
@@ -128,6 +141,7 @@ describe("approveCellValuesFixesStep", () => {
           autoFixed: [],
           approvedMappings: [],
           validatedFilePath: "/tmp/test.csv",
+          _runMetrics: {},
         },
         resumeData: { action: "revise", correctedFixes: corrected },
       });
@@ -137,6 +151,7 @@ describe("approveCellValuesFixesStep", () => {
         autoFixed: [],
         approvedMappings: [],
         validatedFilePath: "/tmp/test.csv",
+        _runMetrics: { approveCellFixesHitl: { suspended: true } },
       });
     });
   });

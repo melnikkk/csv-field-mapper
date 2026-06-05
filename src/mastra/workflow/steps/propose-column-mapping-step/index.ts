@@ -18,6 +18,7 @@ import {
   MappingResults,
   mappingResultsSchema,
 } from "../../shared/schemas/mappingSchema";
+import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 
 export const proposeColumnMappingStep = createStep({
   id: "propose-column-mapping",
@@ -29,6 +30,7 @@ export const proposeColumnMappingStep = createStep({
   }),
   outputSchema: z.object({
     mappingResults: mappingResultsSchema,
+    _runMetrics: runMetricsAccumulatorSchema,
   }),
   execute: async ({ inputData }) => {
     const { headerRow, templateColumns, aliasDictionary, sampleRows } =
@@ -40,11 +42,31 @@ export const proposeColumnMappingStep = createStep({
       aliasDictionary,
     );
 
+    const aliasDictMappedHeaders = new Set(
+      mappingResults
+        .filter((r) => r.csvHeader !== undefined)
+        .map((r) => r.csvHeader as string),
+    );
+
     const unmappedTemplateColumnTitles =
       getUnmappedTemplateColumnTitles(mappingResults);
 
     if (unmappedTemplateColumnTitles.length === 0) {
-      return { mappingResults };
+      return {
+        mappingResults,
+        _runMetrics: {
+          columnMappingLlm: {
+            aliasDictMapped: aliasDictMappedHeaders.size,
+            llmMapped: 0,
+            unmapped: 0,
+            avgLlmConfidence: null,
+            llmCalled: false,
+            inputTokens: 0,
+            outputTokens: 0,
+            durationMs: 0,
+          },
+        },
+      };
     }
 
     const unresolvedHeadersWithSamples = getUnresolvedCsvHeadersWithSamples(
@@ -53,7 +75,8 @@ export const proposeColumnMappingStep = createStep({
       sampleRows,
     );
 
-    const { output: suggestions } = await generateText({
+    const t0 = performance.now();
+    const { output: suggestions, usage } = await generateText({
       model: geminiFlash,
       output: Output.object({ schema: llmMapSuggestionSchema }),
       prompt: buildColumnMappingPrompt(
@@ -61,29 +84,15 @@ export const proposeColumnMappingStep = createStep({
         templateColumns,
       ),
     });
+    const durationMs = performance.now() - t0;
 
-    const claimedCsvHeaders = new Set(
-      mappingResults
-        .filter((row) => row.csvHeader !== undefined)
-        .map((row) => row.csvHeader as string),
-    );
+    const claimedCsvHeaders = new Set(aliasDictMappedHeaders);
 
     for (const suggestion of suggestions.mappings) {
-      if (!suggestion.templateColumnTitle) {
-        continue;
-      }
-
-      if (!headerRow.includes(suggestion.csvHeader)) {
-        continue;
-      }
-
-      if (suggestion.confidence < 0.4) {
-        continue;
-      }
-
-      if (claimedCsvHeaders.has(suggestion.csvHeader)) {
-        continue;
-      }
+      if (!suggestion.templateColumnTitle) continue;
+      if (!headerRow.includes(suggestion.csvHeader)) continue;
+      if (suggestion.confidence < 0.4) continue;
+      if (claimedCsvHeaders.has(suggestion.csvHeader)) continue;
 
       const entry = mappingResults.find(
         (result) =>
@@ -98,6 +107,34 @@ export const proposeColumnMappingStep = createStep({
       }
     }
 
-    return { mappingResults };
+    const llmMappedEntries = mappingResults.filter(
+      (r) =>
+        r.csvHeader !== undefined && !aliasDictMappedHeaders.has(r.csvHeader),
+    );
+    const llmMappedCount = llmMappedEntries.length;
+    const unmappedCount = mappingResults.filter(
+      (r) => r.csvHeader === undefined,
+    ).length;
+    const avgLlmConfidence =
+      llmMappedCount > 0
+        ? llmMappedEntries.reduce((sum, e) => sum + (e.confidence ?? 0), 0) /
+          llmMappedCount
+        : null;
+
+    return {
+      mappingResults,
+      _runMetrics: {
+        columnMappingLlm: {
+          aliasDictMapped: aliasDictMappedHeaders.size,
+          llmMapped: llmMappedCount,
+          unmapped: unmappedCount,
+          avgLlmConfidence,
+          llmCalled: true,
+          inputTokens: usage?.inputTokens ?? 0,
+          outputTokens: usage?.outputTokens ?? 0,
+          durationMs,
+        },
+      },
+    };
   },
 });

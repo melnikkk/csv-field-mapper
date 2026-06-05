@@ -2,9 +2,11 @@
 
 A Mastra workflow that accepts an arbitrary CSV, maps its columns to a known schema, suspends for human confirmation on ambiguous mappings, validates all cell values, proposes AI-assisted fixes for any cells that fail validation, and suspends again for human approval before writing the final output.
 
+After each run a JSON metrics report is written alongside the output CSV and three Mastra scorers (mapping accuracy, efficiency, HITL burden) persist scores to the LibSQL database — providing the foundation for a fair comparison with a future agent implementation.
+
 ## Why a workflow, not an agent
 
-The execution path is fully deterministic: parse → map → [suspend] → apply → validate → propose fixes → [suspend] → write. The LLM is invoked at exactly two points (fuzzy column matching and cell value fix suggestions). No dynamic tool selection needed.
+The execution path is fully deterministic: parse → map → [suspend] → apply → validate → propose fixes → [suspend] → write → report metrics. The LLM is invoked at exactly two points (fuzzy column matching and cell value fix suggestions). No dynamic tool selection needed.
 
 ## Tech Stack
 
@@ -22,22 +24,31 @@ The execution path is fully deterministic: parse → map → [suspend] → apply
 
 ```
 src/mastra/
-├── index.ts                          # Mastra instance — registers workflow and storage
+├── index.ts                          # Mastra instance — registers workflow, storage, and scorers
 ├── models.ts                         # Shared LLM model definitions
+├── metrics/
+│   ├── schemas.ts                    # RunMetrics + RunMetricsAccumulator Zod schemas
+│   ├── constants.ts                  # TOKEN_BUDGET, MAX_EXPECTED_HITL
+│   ├── report.ts                     # computeScores() + writeMetricsReport()
+│   └── scorers/
+│       ├── mappingAccuracy.ts        # Scores column mapping accuracy (0–1)
+│       ├── efficiency.ts             # Scores token efficiency (0–1)
+│       └── hitlBurden.ts             # Scores human-in-the-loop cost (0–1)
 ├── workflow/
 │   ├── index.ts                      # Workflow definition and step chain
 │   └── steps/
 │       ├── analyze-csv-step/         # Parse CSV, check size/encoding, extract headers
-│       ├── propose-column-mapping-step/  # Alias dict → LLM fallback for column mapping
-│       ├── approve-column-mapping-step/  # Suspend/resume for human mapping review
-│       ├── apply-column-mapping-step/    # Rewrite CSV with approved column mappings
-│       ├── validate-cell-values-step/        # Per-cell validation + auto-fix application
-│       ├── propose-cell-values-fixes-step/   # LLM-assisted fix proposals for failed cells
-│       ├── approve-cell-values-fixes-step/   # Suspend/resume for human fix approval
-│       ├── apply-cell-values-fixes-step/     # Apply approved fixes, write final CSV
+│       ├── propose-column-mapping-step/       # Alias dict → LLM fallback; emits LLM metrics
+│       ├── approve-column-mapping-step/       # Suspend/resume for human mapping review; emits HITL metrics
+│       ├── apply-column-mapping-step/         # Rewrite CSV with approved column mappings
+│       ├── validate-cell-values-step/         # Per-cell validation + auto-fix; emits validation counts
+│       ├── propose-cell-values-fixes-step/    # LLM-assisted fix proposals; emits LLM metrics
+│       ├── approve-cell-values-fixes-step/    # Suspend/resume for human fix approval; emits HITL metrics
+│       ├── apply-cell-values-fixes-step/      # Apply approved fixes, write final CSV
+│       ├── generate-metrics-report-step/      # Assemble RunMetrics, call scorers, write JSON report
 │       └── shared/
-│           ├── schemas/                      # Shared Zod schemas (template, mapping, validation)
-│           └── utils/getOutputsDirPath.ts    # Shared outputs dir path util
+│           ├── schemas/                       # Shared Zod schemas (template, mapping, validation)
+│           └── utils/getOutputsDirPath.ts     # Shared outputs dir path util
 samples/                              # Test CSVs: well-formed, aliased, large, special chars
 ```
 
@@ -60,7 +71,11 @@ samples/                              # Test CSVs: well-formed, aliased, large, 
 
 **Step 7 — `approve-cell-values-fixes`**: Suspends the workflow and presents both the proposed fixes and the `autoFixed` list to the user, so the reviewer has full visibility into all mutations. If no fixes were proposed, the suspension is skipped. Supports three resume actions: `approve` (accept all suggestions), `revise` (supply corrected values), or `abort`.
 
-**Step 8 — `apply-cell-values-fixes`**: Applies the approved fixes to the validated CSV by row index and column name, deletes the intermediate validated file, and writes the final output to `public/outputs/`. If there are no applicable fixes, the validated file is returned as-is. The workflow result includes `outputFilePath` (`string | undefined` — `undefined` when the workflow was aborted), `autoFixed` (cells silently corrected during validation), `appliedFixes` (LLM-proposed fixes reviewed and approved by the human), `approvedMappings` (the final column mapping decisions), and `reason` (a diagnostic string present only when the workflow bailed — e.g. user abort or missing required column).
+**Step 8 — `apply-cell-values-fixes`**: Applies the approved fixes to the validated CSV by row index and column name, deletes the intermediate validated file, and writes the final output to `public/outputs/`. If there are no applicable fixes, the validated file is returned as-is.
+
+**Step 9 — `generate-metrics-report`**: Assembles the full `RunMetrics` object from data collected by earlier steps, calls the three Mastra scorers (persisting scores to LibSQL), and writes a self-contained JSON report alongside the output CSV: `csv-mapper-metrics-<runId>.json`. The report includes raw metrics and computed scores, making workflow vs. agent comparison straightforward.
+
+The workflow result includes `outputFilePath` (`string | undefined` — `undefined` when the workflow was aborted), `metricsFilePath` (path to the JSON report), `autoFixed` (cells silently corrected during validation), `appliedFixes` (LLM-proposed fixes reviewed and approved by the human), `approvedMappings` (the final column mapping decisions), and `reason` (a diagnostic string present only when the workflow bailed — e.g. user abort or missing required column).
 
 ## Template Schema
 
@@ -79,6 +94,34 @@ The workflow is driven by a `Template` object passed as workflow input:
   aliasDictionary?: Record<string, string[]>  // templateColumnTitle → [csv header aliases]
 }
 ```
+
+## Metrics
+
+Each run produces a `csv-mapper-metrics-<runId>.json` file alongside the output CSV:
+
+```json
+{
+  "runId": "…",
+  "timestamp": "…",
+  "implementation": "workflow",
+  "scores": {
+    "mappingAccuracy": 0.91,
+    "efficiency": 0.78,
+    "hitlBurden": 0.83
+  },
+  "metrics": {
+    "accuracy": { "columnMapping": { … }, "cellValidation": { … } },
+    "efficiency": { "totalDurationMs": 3200, "llmCalls": { … }, … },
+    "hitl": { … }
+  }
+}
+```
+
+The same scores are also stored in LibSQL via Mastra's scorer infrastructure, queryable through Mastra Studio. The `src/mastra/metrics/` module is designed to be reused by the future agent implementation without modification.
+
+## Workflow Input
+
+The workflow requires a `startedAt` ISO timestamp (set by the caller before triggering) in addition to `filePath` and `template`, so total duration can be calculated accurately across suspend/resume cycles.
 
 ## Getting Started
 

@@ -8,4 +8,5 @@ export const workflowOutputSchema = z.object({
   appliedFixes: cellValidationResultsSchema.optional(),
   approvedMappings: mappingResultsSchema.optional(),
   reason: z.string().optional(),
+  metricsFilePath: z.string().optional(),
 });

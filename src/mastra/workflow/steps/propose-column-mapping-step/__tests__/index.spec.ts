@@ -8,7 +8,10 @@ type LlmMapping = {
 };
 
 const mockGenerateText = mock(() =>
-  Promise.resolve({ output: { mappings: [] as Array<LlmMapping> } }),
+  Promise.resolve({
+    output: { mappings: [] as Array<LlmMapping> },
+    usage: { inputTokens: 100, outputTokens: 50 },
+  }),
 );
 
 mock.module("ai", () => ({
@@ -42,7 +45,7 @@ describe("proposeColumnMappingStep", () => {
 
   describe("when all columns are resolved by the alias dictionary", () => {
     it("returns mapping results without calling the LLM", async () => {
-      const { mappingResults } = await execute({
+      const result = await execute({
         headerRow: ["first_name", "last_name"],
         sampleRows: [["Alice", "Smith"]],
         templateColumns,
@@ -53,10 +56,19 @@ describe("proposeColumnMappingStep", () => {
       });
 
       expect(mockGenerateText).not.toHaveBeenCalled();
-      expect(mappingResults).toHaveLength(2);
-      mappingResults.forEach((r: { confidence: number }) =>
+      expect(result.mappingResults).toHaveLength(2);
+      result.mappingResults.forEach((r: { confidence: number }) =>
         expect(r.confidence).toBe(1),
       );
+      expect(result._runMetrics.columnMappingLlm).toMatchObject({
+        llmCalled: false,
+        aliasDictMapped: 2,
+        llmMapped: 0,
+        unmapped: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+      });
+      expect(result._runMetrics.columnMappingLlm?.avgLlmConfidence).toBeNull();
     });
   });
 
@@ -84,22 +96,35 @@ describe("proposeColumnMappingStep", () => {
               },
             ],
           },
+          usage: { inputTokens: 100, outputTokens: 50 },
         }),
       );
 
-      const { mappingResults } = await execute({
+      const result = await execute({
         headerRow: ["fname", "last_name"],
         sampleRows: [["Alice", "Smith"]],
         templateColumns,
         aliasDictionary: { "Last Name": ["last_name"] },
       });
 
-      const firstNameEntry = mappingResults.find(
+      const firstNameEntry = result.mappingResults.find(
         (r: { templateColumn: { title: string } }) =>
           r.templateColumn.title === "First Name",
       );
       expect(firstNameEntry?.csvHeader).toBe("fname");
       expect(firstNameEntry?.confidence).toBe(0.9);
+      expect(result._runMetrics.columnMappingLlm).toMatchObject({
+        llmCalled: true,
+        aliasDictMapped: 1,
+        llmMapped: 1,
+        unmapped: 0,
+        inputTokens: 100,
+        outputTokens: 50,
+      });
+      expect(result._runMetrics.columnMappingLlm?.avgLlmConfidence).toBeCloseTo(
+        0.9,
+        5,
+      );
     });
 
     it("skips LLM suggestion when templateColumnTitle is null", async () => {
@@ -114,6 +139,7 @@ describe("proposeColumnMappingStep", () => {
               },
             ],
           },
+          usage: { inputTokens: 100, outputTokens: 50 },
         }),
       );
 
@@ -144,6 +170,7 @@ describe("proposeColumnMappingStep", () => {
               },
             ],
           },
+          usage: { inputTokens: 100, outputTokens: 50 },
         }),
       );
 
@@ -177,6 +204,7 @@ describe("proposeColumnMappingStep", () => {
               },
             ],
           },
+          usage: { inputTokens: 100, outputTokens: 50 },
         }),
       );
 
@@ -211,6 +239,7 @@ describe("proposeColumnMappingStep", () => {
               },
             ],
           },
+          usage: { inputTokens: 100, outputTokens: 50 },
         }),
       );
 
@@ -245,6 +274,7 @@ describe("proposeColumnMappingStep", () => {
               },
             ],
           },
+          usage: { inputTokens: 100, outputTokens: 50 },
         }),
       );
 
@@ -274,6 +304,7 @@ describe("proposeColumnMappingStep", () => {
               },
             ],
           },
+          usage: { inputTokens: 100, outputTokens: 50 },
         }),
       );
 
