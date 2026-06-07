@@ -33,6 +33,13 @@ csvFieldMapperWorkflow
     aliasDictionary: getInitData<WorkflowInputData>().template.aliasDictionary,
   }))
   .then(proposeColumnMappingStep)
+  .map(async ({ inputData, getInitData }) => ({
+    mappingResults: inputData.mappingResults,
+    _runMetrics: inputData._runMetrics,
+    startedAt: getInitData<WorkflowInputData>().startedAt,
+    totalTemplateColumns:
+      getInitData<WorkflowInputData>().template.columns.length,
+  }))
   .then(approveColumnMappingStep)
   .map(async ({ inputData, getInitData }) => ({
     filePath: getInitData<WorkflowInputData>().filePath,
@@ -56,6 +63,16 @@ csvFieldMapperWorkflow
     _runMetrics: inputData._runMetrics,
   }))
   .then(proposeCellValuesFixesStep)
+  .map(async ({ inputData, getInitData }) => ({
+    proposedFixes: inputData.proposedFixes,
+    autoFixed: inputData.autoFixed,
+    approvedMappings: inputData.approvedMappings,
+    validatedFilePath: inputData.validatedFilePath,
+    _runMetrics: inputData._runMetrics,
+    startedAt: getInitData<WorkflowInputData>().startedAt,
+    totalTemplateColumns:
+      getInitData<WorkflowInputData>().template.columns.length,
+  }))
   .then(approveCellValuesFixesStep)
   .then(applyCellValuesFixesStep)
   .map(async ({ inputData, getInitData }) => ({

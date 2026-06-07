@@ -40,6 +40,8 @@ export const runMetricsAccumulatorSchema = z.object({
     .optional(),
 });
 
+export type RunMetricsAccumulator = z.infer<typeof runMetricsAccumulatorSchema>;
+
 export const runMetricsSchema = z.object({
   runId: z.string(),
   timestamp: z.string(),

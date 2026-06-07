@@ -4,11 +4,14 @@ import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { resumeApproveColumnMappingStepSchema } from "./schema";
 import { isMappingResultsFullyConfident } from "./utils";
+import { recordMetrics } from "../../../metrics/record";
 
 export const approveColumnMappingStep = createStep({
   id: "approve-column-mapping-step",
   inputSchema: z.object({
     mappingResults: mappingResultsSchema,
+    startedAt: z.string(),
+    totalTemplateColumns: z.number(),
     _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   outputSchema: z.object({
@@ -19,8 +22,9 @@ export const approveColumnMappingStep = createStep({
   }),
   suspendSchema: z.object({ mappingResults: mappingResultsSchema }),
   resumeSchema: resumeApproveColumnMappingStepSchema,
-  execute: async ({ inputData, suspend, resumeData, bail }) => {
-    const { mappingResults, _runMetrics } = inputData;
+  execute: async ({ inputData, suspend, resumeData, bail, mastra, runId }) => {
+    const { mappingResults, startedAt, totalTemplateColumns, _runMetrics } =
+      inputData;
 
     if (!resumeData) {
       if (isMappingResultsFullyConfident(mappingResults)) {
@@ -33,12 +37,23 @@ export const approveColumnMappingStep = createStep({
         };
       }
 
-      return suspend({ mappingResults: mappingResults });
+      return suspend({ mappingResults });
     }
 
     const { action } = resumeData;
 
     if (action === "abort") {
+      await recordMetrics({
+        startedAt,
+        totalTemplateColumns,
+        _runMetrics: {
+          ..._runMetrics,
+          approveMappingHitl: { suspended: true, revisionCount: 0 },
+        },
+        mastra,
+        workflowRunId: runId,
+      });
+
       return bail({
         outputFilePath: undefined,
         reason: "User aborted column mapping",
