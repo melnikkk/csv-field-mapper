@@ -2,7 +2,6 @@
   "name": "csv-field-mapper",
   "private": true,
   "type": "module",
-  "module": "index.ts",
   "scripts": {
     "dev": "mastra dev",
     "build": "mastra build",
@@ -12,32 +11,27 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "test": "bun test",
+    "typecheck": "tsc --noEmit",
     "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.72",
     "@mastra/core": "^1.32.1",
     "@mastra/duckdb": "^1.3.0",
-    "@mastra/evals": "^1.2.2",
     "@mastra/libsql": "^1.10.0",
-    "@mastra/loggers": "^1.1.1",
-    "@mastra/memory": "^1.17.5",
-    "@mastra/observability": "^1.11.1",
     "ai": "^6.0.178",
     "papaparse": "^5.5.3",
     "zod": "^4"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/bun": "1.3.13",
     "@types/node": "^25.6.2",
     "@types/papaparse": "^5.5.2",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.4",
     "mastra": "^1.8.1",
     "oxfmt": "^0.48.0",
-    "oxlint": "^1.63.0"
-  },
-  "peerDependencies": {
+    "oxlint": "^1.63.0",
     "typescript": "^6.0.3"
   },
   "engines": {
