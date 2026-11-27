@@ -1,81 +1,166 @@
 # CSV Mapping & Validation Workflow
 
-A Mastra workflow that accepts an arbitrary CSV, maps its columns to a known schema, suspends for human confirmation on ambiguous mappings, validates all cell values, proposes AI-assisted fixes for any cells that fail validation, and suspends again for human approval before writing the final output.
+[![CI](https://github.com/melnikkk/csv-field-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/melnikkk/csv-field-mapper/actions/workflows/ci.yml)
 
-After each run a JSON metrics report is written alongside the output CSV and three Mastra scorers (mapping accuracy, efficiency, HITL burden) persist scores to the LibSQL database — providing the foundation for a fair comparison with a future agent implementation.
+A Mastra workflow that accepts an arbitrary CSV, maps its columns to a known template, suspends for human confirmation when mappings are not fully confident, validates every cell, proposes AI-assisted fixes for cells that fail validation, and suspends again for human approval before writing the final output.
 
-## Why a workflow, not an agent
+After each run a JSON metrics report is written alongside the output CSV and three Mastra scorers (mapping accuracy, efficiency, HITL burden) persist scores to the database, providing the foundation for a fair comparison with a future agent implementation.
 
-The execution path is fully deterministic: parse → map → [suspend] → apply → validate → propose fixes → [suspend] → write → report metrics. The LLM is invoked at exactly two points (fuzzy column matching and cell value fix suggestions). No dynamic tool selection needed.
+<!-- TODO: Studio suspend/resume GIF -->
 
-## Tech Stack
+## Quickstart
 
-| Layer              | Choice                                |
-| ------------------ | ------------------------------------- |
-| Language           | TypeScript                            |
-| Workflow framework | Mastra (`@mastra/core`)               |
-| LLM                | Google Gemini 2.5 Flash (via AI SDK)  |
-| CSV parsing        | PapaParse                             |
-| Schema validation  | Zod                                   |
-| Runtime            | Bun (>=22.13.0)                       |
-| Storage            | LibSQL (local SQLite via `mastra.db`) |
+Requires Node.js `>=22.13.0` (see `engines.node` in `package.json`) and [Bun](https://bun.sh) as the package manager and script runner.
 
-## Project Structure
+```shell
+bun install
+cp .env.example .env
+# set GOOGLE_GENERATIVE_AI_API_KEY in .env
 
-```
-src/mastra/
-├── index.ts                          # Mastra instance — registers workflow, storage, and scorers
-├── models.ts                         # Shared LLM model definitions
-├── metrics/
-│   ├── schemas.ts                    # RunMetrics + RunMetricsAccumulator Zod schemas
-│   ├── constants.ts                  # TOKEN_BUDGET, MAX_EXPECTED_HITL
-│   ├── report.ts                     # computeScores() + writeMetricsReport()
-│   └── scorers/
-│       ├── mappingAccuracy.ts        # Scores column mapping accuracy (0–1)
-│       ├── efficiency.ts             # Scores token efficiency (0–1)
-│       └── hitlBurden.ts             # Scores human-in-the-loop cost (0–1)
-├── workflow/
-│   ├── index.ts                      # Workflow definition and step chain
-│   └── steps/
-│       ├── analyze-csv-step/         # Parse CSV, check size/encoding, extract headers
-│       ├── propose-column-mapping-step/       # Alias dict → LLM fallback; emits LLM metrics
-│       ├── approve-column-mapping-step/       # Suspend/resume for human mapping review; emits HITL metrics
-│       ├── apply-column-mapping-step/         # Rewrite CSV with approved column mappings
-│       ├── validate-cell-values-step/         # Per-cell validation + auto-fix; emits validation counts
-│       ├── propose-cell-values-fixes-step/    # LLM-assisted fix proposals; emits LLM metrics
-│       ├── approve-cell-values-fixes-step/    # Suspend/resume for human fix approval; emits HITL metrics
-│       ├── apply-cell-values-fixes-step/      # Apply approved fixes, write final CSV
-│       ├── generate-metrics-report-step/      # Assemble RunMetrics, call scorers, write JSON report
-│       └── shared/
-│           ├── schemas/                       # Shared Zod schemas (template, mapping, validation)
-│           └── utils/getOutputsDirPath.ts     # Shared outputs dir path util
-samples/                              # Test CSVs: well-formed, aliased, large, special chars
+bun run demo
 ```
 
-## Workflow Steps
+`bun run demo` (`scripts/demo.ts`) runs the workflow on `samples/products.csv` with `samples/templates/products.json`, prints each suspend payload, auto-approves it, and prints the final result.
 
-**Step 1 — `analyze-csv`**: Reads the CSV file, checks file size against `maxFileSize` and UTF-8 encoding, then extracts the header row, a sample of data rows, and total row count.
+To drive the workflow interactively, run `bun run dev` and open [http://localhost:4111](http://localhost:4111) for Mastra Studio.
 
-**Step 2 — `propose-column-mapping`**: Two-pass column resolution:
+| Script              | Purpose                            |
+| ------------------- | ---------------------------------- |
+| `bun run dev`       | Start Mastra Studio                |
+| `bun run build`     | Build a production server          |
+| `bun run demo`      | End-to-end run on the sample CSV   |
+| `bun run test`      | Unit tests (`bun test --isolate`)  |
+| `bun run lint`      | oxlint                             |
+| `bun run fmt:check` | oxfmt check (`bun run fmt` to fix) |
+| `bun run typecheck` | `tsc --noEmit`                     |
 
-1. Alias dictionary lookup (fast, deterministic) — maps known synonyms to template columns
-2. LLM fallback (Gemini Flash) for any headers still unresolved after the dictionary pass
+## Design decisions
 
-**Step 3 — `approve-column-mapping`**: Suspends the workflow and presents the proposed mappings to the user. Supports three resume actions: `approve`, `revise` (re-suspends with corrected mappings), or `abort`.
+**Workflow, not agent.** The execution path is deterministic: parse, map, [suspend], apply, validate, propose fixes, [suspend], write, report. The LLM is invoked at exactly two points (fuzzy column matching and cell fix suggestions), so no dynamic tool selection is needed. A workflow gives reproducible runs, typed step boundaries, and cheap, comparable metrics.
 
-**Step 4 — `apply-column-mapping`**: Validates that every `required: true` template column has a mapped CSV header — aborts with a descriptive message if any are missing. Then rewrites the CSV using only the approved column mappings, producing a new intermediate file with template-aligned headers. Non-required unmapped columns are silently dropped.
+**Alias dictionary first, LLM fallback second.** Known synonyms resolve instantly and for free from the template's `aliasDictionary`. Only headers the dictionary cannot resolve go to Gemini Flash, which keeps token spend and nondeterminism limited to the genuinely ambiguous columns.
 
-**Step 5 — `validate-cell-values`**: Runs per-cell validators defined on each template column. Cells that fail but can be auto-fixed (via `fixerStrategy`) are corrected in place and recorded in `autoFixed`; remaining failures are flagged as `needs-review`. Both lists are threaded through to the final output.
+**Human-in-the-loop at two points.** Column mapping and cell fixes are the two places where a wrong guess silently corrupts data. The workflow suspends there only when needed: the mapping step skips suspension when every mapping is fully confident, and the fixes step skips it when there is nothing to review. Both support `approve`, `revise`, and `abort`.
 
-**Step 6 — `propose-cell-values-fixes`**: For cells that could not be auto-fixed, calls Gemini Flash to suggest corrected values. If there are no `needs-review` cells, this step is a no-op and no LLM call is made.
+## Workflow flow
 
-**Step 7 — `approve-cell-values-fixes`**: Suspends the workflow and presents both the proposed fixes and the `autoFixed` list to the user, so the reviewer has full visibility into all mutations. If no fixes were proposed, the suspension is skipped. Supports three resume actions: `approve` (accept all suggestions), `revise` (supply corrected values), or `abort`.
+```mermaid
+flowchart TD
+    A[analyze-csv] --> B[propose-column-mapping]
+    B --> C{approve-column-mapping}
+    C -- "not fully confident: suspend" --> H1([Human review])
+    H1 -- "approve / revise" --> D
+    H1 -- abort --> Z([Bail with reason])
+    C -- "fully confident" --> D[apply-column-mapping]
+    D --> E[validate-cell-values]
+    E --> F[propose-cell-values-fixes]
+    F --> G{approve-cell-values-fixes}
+    G -- "fixes proposed: suspend" --> H2([Human review])
+    H2 -- "approve / revise" --> I
+    H2 -- abort --> Z
+    G -- "no fixes" --> I[apply-cell-values-fixes]
+    I --> J[generate-metrics-report]
+```
 
-**Step 8 — `apply-cell-values-fixes`**: Applies the approved fixes to the validated CSV by row index and column name, deletes the intermediate validated file, and writes the final output to `public/outputs/`. If there are no applicable fixes, the validated file is returned as-is.
+## Workflow steps
 
-**Step 9 — `generate-metrics-report`**: Assembles the full `RunMetrics` object from data collected by earlier steps, calls the three Mastra scorers (persisting scores to LibSQL), and writes a self-contained JSON report alongside the output CSV: `csv-mapper-metrics-<runId>.json`. The report includes raw metrics and computed scores, making workflow vs. agent comparison straightforward.
+**`analyze-csv`**: Reads the CSV, checks file size against `maxFileSize` and UTF-8 encoding, then extracts the header row, a sample of data rows, and the total row count.
 
-The workflow result includes `outputFilePath` (`string | undefined` — `undefined` when the workflow was aborted), `metricsFilePath` (path to the JSON report), `autoFixed` (cells silently corrected during validation), `appliedFixes` (LLM-proposed fixes reviewed and approved by the human), `approvedMappings` (the final column mapping decisions), and `reason` (a diagnostic string present only when the workflow bailed — e.g. user abort or missing required column).
+**`propose-column-mapping`**: Alias dictionary lookup, then Gemini Flash for any headers still unresolved.
+
+**`approve-column-mapping`** (suspend point 1): If any mapping is not fully confident, suspends and presents the proposed mappings. Resume actions: `approve`, `revise` (supply `correctedMappings`; the workflow continues with them and does not suspend again), or `abort`.
+
+**`apply-column-mapping`**: Aborts with a descriptive message if any `required: true` template column has no mapped CSV header. Otherwise rewrites the CSV with template-aligned headers into an intermediate file. Unmapped non-required columns are dropped.
+
+**`validate-cell-values`**: Runs the per-cell validators of each template column. Cells that fail but can be fixed via `fixerStrategy` are corrected in place and recorded in `autoFixed`; remaining failures are `needs-review`.
+
+**`propose-cell-values-fixes`**: Calls Gemini Flash to suggest corrected values for `needs-review` cells. With no such cells, no LLM call is made.
+
+**`approve-cell-values-fixes`** (suspend point 2): If fixes were proposed, suspends and presents `proposedFixes` together with `autoFixed`. Resume actions: `approve`, `revise` (supply `correctedFixes`; no further suspension), or `abort`.
+
+**`apply-cell-values-fixes`**: Applies approved fixes by row index and column name, deletes the intermediate validated file, and writes the final CSV.
+
+**`generate-metrics-report`**: Assembles `RunMetrics`, runs the three scorers, and writes `csv-mapper-metrics-<runId>.json`.
+
+Output files (intermediate and final CSVs, metrics JSON) are written to `src/mastra/workflow/outputs/` (resolved by `getOutputsDirPath`; gitignored).
+
+The workflow result contains `outputFilePath` (`undefined` when aborted), `metricsFilePath`, `autoFixed`, `appliedFixes`, `approvedMappings`, and `reason` (present only when the workflow bailed, e.g. user abort or missing required column).
+
+## Suspend / resume payloads
+
+Payloads below come from `bun run demo` on `samples/products.csv`; `template` objects are shortened to their title for readability.
+
+Suspend payload of `approve-column-mapping-step` (`mappingResults`, one entry per template column):
+
+```json
+{
+  "mappingResults": [
+    {
+      "templateColumn": { "title": "name", "required": true, "...": "..." },
+      "csvHeader": "Product Name",
+      "confidence": 1
+    },
+    {
+      "templateColumn": { "title": "price", "required": true, "...": "..." },
+      "csvHeader": "Price (retail)",
+      "confidence": 0.95
+    }
+  ]
+}
+```
+
+Suspend payload of `approve-cell-values-fixes-step`:
+
+```json
+{
+  "proposedFixes": [
+    {
+      "rowIndex": 3,
+      "columnTitle": "sku",
+      "originalValue": "WGT-4",
+      "fixedValue": "WGT-004",
+      "status": "needs-review",
+      "failedRules": ["Must look like ABC-123"]
+    }
+  ],
+  "autoFixed": [
+    {
+      "rowIndex": 0,
+      "columnTitle": "currency",
+      "originalValue": "usd",
+      "fixedValue": "USD",
+      "status": "auto-fixed",
+      "failedRules": ["Must be one of: USD, EUR, GBP"]
+    }
+  ]
+}
+```
+
+Resume data (a discriminated union on `action`):
+
+```ts
+await run.resume({
+  step: "approve-column-mapping-step",
+  resumeData: { action: "approve" },
+});
+
+await run.resume({
+  step: "approve-cell-values-fixes-step",
+  resumeData: {
+    action: "revise",
+    correctedFixes: [
+      /* same shape as proposedFixes */
+    ],
+  },
+});
+
+await run.resume({
+  step: "approve-column-mapping-step",
+  resumeData: { action: "abort" },
+});
+```
+
+`revise` on the mapping step takes `correctedMappings` (same shape as `mappingResults`).
 
 ## Template Schema
 
@@ -117,22 +202,44 @@ Each run produces a `csv-mapper-metrics-<runId>.json` file alongside the output 
 }
 ```
 
-The same scores are also stored in LibSQL via Mastra's scorer infrastructure, queryable through Mastra Studio. The `src/mastra/metrics/` module is designed to be reused by the future agent implementation without modification.
+The same scores are also stored via Mastra's scorer infrastructure, queryable through Mastra Studio. The `src/mastra/metrics/` module is designed to be reused by the future agent implementation without modification.
 
 ## Workflow Input
 
-The workflow requires a `startedAt` ISO timestamp (set by the caller before triggering) in addition to `filePath` and `template`, so total duration can be calculated accurately across suspend/resume cycles.
+`filePath` and `template` are required. `startedAt` (ISO timestamp) defaults to the time the run starts; it is persisted across suspend/resume cycles so total duration is calculated accurately.
 
-## Getting Started
+## Tech Stack
 
-```shell
-cp .env.example .env
-# Add your GOOGLE_GENERATIVE_AI_API_KEY to .env
+| Layer              | Choice                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| Language           | TypeScript                                                                            |
+| Workflow framework | Mastra (`@mastra/core`)                                                               |
+| LLM                | Google Gemini 2.5 Flash (via AI SDK)                                                  |
+| CSV parsing        | PapaParse                                                                             |
+| Schema validation  | Zod                                                                                   |
+| Runtime            | Node.js `>=22.13.0`; Bun for scripts and tests                                        |
+| Storage            | LibSQL (`mastra.db`); observability and metrics queries via DuckDB (`@mastra/duckdb`) |
 
-bun run dev
+`src/mastra/index.ts` swaps DuckDB's observability store into the LibSQL storage because the LibSQL observability store does not implement metric aggregation queries.
+
+## Project Structure
+
+```
+src/mastra/
+├── index.ts                          # Mastra instance: workflow, storage, scorers
+├── models.ts                         # Shared LLM model definitions
+├── metrics/                          # RunMetrics schemas, record.ts, report.ts, scorers/
+└── workflow/
+    ├── index.ts                      # Workflow definition and step chain
+    ├── shared/                       # Zod schemas and getOutputsDirPath util
+    └── steps/                        # One directory per step (see Workflow steps)
+samples/                              # Sample CSVs and samples/templates/products.json
+scripts/demo.ts                       # bun run demo
 ```
 
-Open [http://localhost:4111](http://localhost:4111) to access Mastra Studio — an interactive UI for testing the workflow and inspecting traces.
+## License
+
+MIT. See `LICENSE`.
 
 ## Learn More
 
