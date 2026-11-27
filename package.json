@@ -7,6 +7,7 @@
     "dev": "mastra dev",
     "build": "mastra build",
     "start": "mastra start",
+    "demo": "bun run scripts/demo.ts",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",

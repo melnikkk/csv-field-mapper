@@ -1,0 +1,64 @@
+{
+  "maxFileSize": 1048576,
+  "columns": [
+    {
+      "title": "name",
+      "required": true,
+      "description": "Product display name",
+      "validators": [
+        { "type": "required" },
+        { "type": "maxLength", "max": 100 }
+      ],
+      "fixerStrategy": "normalizeWhitespace"
+    },
+    {
+      "title": "price",
+      "required": true,
+      "description": "Unit price as a decimal number",
+      "validators": [{ "type": "required" }, { "type": "numeric", "min": 0 }],
+      "fixerStrategy": "stripNonNumeric"
+    },
+    {
+      "title": "sku",
+      "required": true,
+      "description": "Stock keeping unit, e.g. WGT-001",
+      "validators": [
+        { "type": "required" },
+        {
+          "type": "regex",
+          "pattern": "^[A-Z]{3}-\\d{3}$",
+          "message": "Must look like ABC-123"
+        }
+      ],
+      "fixerStrategy": "trimAndUpper"
+    },
+    {
+      "title": "quantity",
+      "required": true,
+      "description": "Units in stock",
+      "validators": [
+        { "type": "required" },
+        { "type": "integer" },
+        { "type": "numeric", "min": 0 }
+      ],
+      "fixerStrategy": "stripNonNumeric"
+    },
+    {
+      "title": "currency",
+      "required": true,
+      "description": "ISO 4217 currency code",
+      "validators": [
+        { "type": "required" },
+        { "type": "enum", "values": ["USD", "EUR", "GBP"] }
+      ],
+      "fixerStrategy": "trimAndUpper"
+    }
+  ],
+  "aliasDictionary": {
+    "name": ["product name", "product", "item", "title"],
+    "price": ["unit price", "cost", "amount"],
+    "sku": ["product code", "item code", "article"],
+    "quantity": ["qty", "stock", "units"],
+    "currency": ["curr", "ccy"]
+  }
+}

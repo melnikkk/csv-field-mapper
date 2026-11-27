@@ -1,0 +1,5 @@
+Product Name,Price (retail),Item Code,Qty,Curr,Supplier Notes
+Widget A,$9.99,wgt-001,100,usd,Preferred vendor
+  Widget   B ,14.99, WGT-002 ,50,EUR,Backorder risk
+Widget C,4.99,WGT-003,200 units,gbp,
+Widget D,abc,WGT-4,10,USD,Bad price and SKU
