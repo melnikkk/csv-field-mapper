@@ -46,3 +46,5 @@ output.txt
 
 # Project related
 outputs
+*.duckdb
+*.duckdb.wal
