@@ -20,20 +20,25 @@ bun test      # Run unit tests
 
 ## Project Structure
 
-| Path                                                        | Description                                                             |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `src/mastra/index.ts`                                       | Mastra instance — registers `csvFieldMapperWorkflow` and LibSQL storage |
-| `src/mastra/models.ts`                                      | Shared LLM model exports (Gemini Flash via `@ai-sdk/google`)            |
-| `src/mastra/workflow/index.ts`                              | Workflow definition and step chain                                      |
-| `src/mastra/workflow/steps/analyze-csv-step/`               | Parse CSV, enforce size/encoding limits, extract headers                |
-| `src/mastra/workflow/steps/propose-column-mapping-step/`    | Alias dict lookup → LLM fallback for column mapping                     |
-| `src/mastra/workflow/steps/approve-column-mapping-step/`    | Suspend/resume for human review; supports approve/revise/abort          |
-| `src/mastra/workflow/steps/apply-column-mapping-step/`      | Rewrite CSV with approved column mappings                               |
-| `src/mastra/workflow/steps/validate-cell-values-step/`      | Per-cell validation + auto-fix via `fixerStrategy`                      |
-| `src/mastra/workflow/steps/propose-cell-values-fixes-step/` | LLM-assisted fix proposals for cells that couldn't be auto-fixed        |
-| `src/mastra/workflow/steps/shared/schemas/`                 | Shared Zod schemas: template, mapping, rows, validation                 |
-| `src/mastra/public/outputs/`                                | Runtime output CSVs (intermediate mapped + final validated)             |
-| `samples/`                                                  | Test CSVs: well-formed, aliased, large, special chars                   |
+| Path                                                        | Description                                                                                                         |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `src/mastra/index.ts`                                       | Mastra instance — registers `csvFieldMapperWorkflow`, scorers, and LibSQL storage (observability swapped to DuckDB) |
+| `src/mastra/models.ts`                                      | Shared LLM model exports (Gemini Flash via `@ai-sdk/google`)                                                        |
+| `src/mastra/workflow/index.ts`                              | Workflow definition and step chain                                                                                  |
+| `src/mastra/workflow/steps/analyze-csv-step/`               | Parse CSV, enforce size/encoding limits, extract headers                                                            |
+| `src/mastra/workflow/steps/propose-column-mapping-step/`    | Alias dict lookup → LLM fallback for column mapping                                                                 |
+| `src/mastra/workflow/steps/approve-column-mapping-step/`    | Suspend/resume for human review; supports approve/revise/abort                                                      |
+| `src/mastra/workflow/steps/apply-column-mapping-step/`      | Rewrite CSV with approved column mappings                                                                           |
+| `src/mastra/workflow/steps/validate-cell-values-step/`      | Per-cell validation + auto-fix via `fixerStrategy`                                                                  |
+| `src/mastra/workflow/steps/propose-cell-values-fixes-step/` | LLM-assisted fix proposals for cells that couldn't be auto-fixed                                                    |
+| `src/mastra/workflow/steps/approve-cell-values-fixes-step/` | Suspend/resume for human review of proposed cell fixes                                                              |
+| `src/mastra/workflow/steps/apply-cell-values-fixes-step/`   | Apply approved cell fixes and write the final validated CSV                                                         |
+| `src/mastra/workflow/steps/generate-metrics-report-step/`   | Build the metrics report at the end of the workflow                                                                 |
+| `src/mastra/workflow/shared/schemas/`                       | Shared Zod schemas: template, mapping, rows, validation, workflow I/O                                               |
+| `src/mastra/workflow/shared/utils/`                         | Shared helpers, e.g. `getOutputsDirPath`                                                                            |
+| `src/mastra/metrics/`                                       | Metrics recording, report, and scorers (mapping accuracy, efficiency, HITL burden)                                  |
+| `src/mastra/workflow/outputs/`                              | Runtime output CSVs (gitignored, created at run time; see `getOutputsDirPath`)                                      |
+| `samples/`                                                  | Test CSVs: well-formed, aliased, large, special chars                                                               |
 
 ### Top-level files
 
