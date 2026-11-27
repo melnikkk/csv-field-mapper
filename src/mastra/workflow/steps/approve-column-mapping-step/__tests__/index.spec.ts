@@ -1,4 +1,11 @@
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect, mock, beforeEach } from "bun:test";
+
+const mockRecordMetrics = mock(() => Promise.resolve("/mock/metrics.json"));
+
+mock.module("../../../../metrics/record", () => ({
+  recordMetrics: mockRecordMetrics,
+}));
+
 import { approveColumnMappingStep } from "../index";
 import type { MappingResults } from "../../../shared/schemas/mappingSchema";
 
@@ -14,6 +21,8 @@ const makeMapping = (
 const runExecute = (params: {
   inputData: {
     mappingResults: MappingResults;
+    startedAt?: string;
+    totalTemplateColumns?: number;
     _runMetrics?: Record<string, unknown>;
   };
   resumeData?: unknown;
@@ -27,6 +36,8 @@ const runExecute = (params: {
   });
 
 describe("approveColumnMappingStep", () => {
+  beforeEach(() => mockRecordMetrics.mockClear());
+
   describe("without resumeData", () => {
     it("returns approvedMappings without suspending when all mappings are fully confident", async () => {
       const mappings = [makeMapping(1), makeMapping(1, "Email")];
@@ -80,10 +91,16 @@ describe("approveColumnMappingStep", () => {
       const bail = mock(() => {});
 
       await runExecute({
-        inputData: { mappingResults: [makeMapping(0.8)] },
+        inputData: {
+          mappingResults: [makeMapping(0.8)],
+          startedAt: new Date().toISOString(),
+          totalTemplateColumns: 1,
+        },
         resumeData: { action: "abort" },
         bail,
       });
+
+      expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
 
       expect(bail).toHaveBeenCalledWith({
         outputFilePath: undefined,

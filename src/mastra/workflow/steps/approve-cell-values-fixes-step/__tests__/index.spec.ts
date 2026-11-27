@@ -1,4 +1,11 @@
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect, mock, beforeEach } from "bun:test";
+
+const mockRecordMetrics = mock(() => Promise.resolve("/mock/metrics.json"));
+
+mock.module("../../../../metrics/record", () => ({
+  recordMetrics: mockRecordMetrics,
+}));
+
 import { approveCellValuesFixesStep } from "../index";
 import { CellValueValidationStatus } from "../../validate-cell-values-step/constants";
 import type { CellValidationResult } from "../../../shared/schemas/validationSchema";
@@ -21,6 +28,8 @@ const runExecute = (params: {
     autoFixed: CellValidationResult[];
     approvedMappings: unknown[];
     validatedFilePath: string;
+    startedAt?: string;
+    totalTemplateColumns?: number;
     _runMetrics?: Record<string, unknown>;
   };
   resumeData?: unknown;
@@ -35,6 +44,8 @@ const runExecute = (params: {
   });
 
 describe("approveCellValuesFixesStep", () => {
+  beforeEach(() => mockRecordMetrics.mockClear());
+
   describe("without resumeData", () => {
     it("returns empty approvedFixes without suspending when proposedFixes is empty", async () => {
       const suspend = mock(() => {});
@@ -93,11 +104,15 @@ describe("approveCellValuesFixesStep", () => {
           autoFixed: [],
           approvedMappings: [],
           validatedFilePath: "/tmp/test.csv",
+          startedAt: new Date().toISOString(),
+          totalTemplateColumns: 1,
           _runMetrics: {},
         },
         resumeData: { action: "abort" },
         bail,
       });
+
+      expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
 
       expect(bail).toHaveBeenCalledWith({
         outputFilePath: undefined,
