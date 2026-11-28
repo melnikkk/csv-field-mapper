@@ -5,8 +5,7 @@ export const getConfidentMappingResults = (mappingResults: MappingResults) =>
 
 export const isMappingResultsFullyConfident = (
   mappingResults: MappingResults,
-) => {
-  const confidentMappingResults = getConfidentMappingResults(mappingResults);
-
-  return confidentMappingResults.length === mappingResults.length;
-};
+) =>
+  mappingResults.every(({ csvHeader, confidence, templateColumn }) =>
+    csvHeader === undefined ? !templateColumn.required : confidence === 1,
+  );

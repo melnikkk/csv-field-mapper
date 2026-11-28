@@ -61,6 +61,42 @@ describe("approveColumnMappingStep", () => {
       });
     });
 
+    it("auto-approves when only an optional column is unmapped", async () => {
+      const mappings: MappingResults = [
+        makeMapping(1),
+        {
+          templateColumn: { title: "Phone", required: false },
+          csvHeader: undefined,
+          confidence: 0,
+        },
+      ];
+      const suspend = mock(() => {});
+
+      const result = await runExecute({
+        inputData: { mappingResults: mappings, _runMetrics: {} },
+        suspend,
+      });
+
+      expect(suspend).not.toHaveBeenCalled();
+      expect(result.approvedMappings).toEqual(mappings);
+    });
+
+    it("suspends when a required column is unmapped", async () => {
+      const mappings: MappingResults = [
+        makeMapping(1),
+        {
+          templateColumn: { title: "Phone", required: true },
+          csvHeader: undefined,
+          confidence: 0,
+        },
+      ];
+      const suspend = mock(() => {});
+
+      await runExecute({ inputData: { mappingResults: mappings }, suspend });
+
+      expect(suspend).toHaveBeenCalledWith({ mappingResults: mappings });
+    });
+
     it("suspends with mappingResults when not all mappings are fully confident", async () => {
       const mappings = [makeMapping(1), makeMapping(0.8, "Email")];
       const suspend = mock(() => {});

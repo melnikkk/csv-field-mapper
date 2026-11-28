@@ -61,4 +61,41 @@ describe("isMappingResultsFullyConfident", () => {
   it("returns true for empty array", () => {
     expect(isMappingResultsFullyConfident([])).toBe(true);
   });
+
+  it("returns true when only optional columns are unmapped", () => {
+    const unmappedOptional: MappingResults[number] = {
+      templateColumn: { title: "Phone", required: false },
+      csvHeader: undefined,
+      confidence: 0,
+    };
+
+    expect(
+      isMappingResultsFullyConfident([makeMapping(1), unmappedOptional]),
+    ).toBe(true);
+  });
+
+  it("returns false when a required column is unmapped", () => {
+    const unmappedRequired: MappingResults[number] = {
+      templateColumn: { title: "Phone", required: true },
+      csvHeader: undefined,
+      confidence: 0,
+    };
+
+    expect(
+      isMappingResultsFullyConfident([makeMapping(1), unmappedRequired]),
+    ).toBe(false);
+  });
+
+  it("returns false when an optional column is mapped with confidence below 1", () => {
+    expect(
+      isMappingResultsFullyConfident([
+        makeMapping(1),
+        {
+          templateColumn: { title: "Phone", required: false },
+          csvHeader: "tel",
+          confidence: 0.7,
+        },
+      ]),
+    ).toBe(false);
+  });
 });
