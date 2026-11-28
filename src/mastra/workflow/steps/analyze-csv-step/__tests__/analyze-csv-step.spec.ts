@@ -1,29 +1,56 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from "bun:test";
 import { rm, writeFile } from "fs/promises";
 import { join } from "path";
-import { FILE_TOO_LARGE, SAMPLE_ROW_COUNT } from "../constants";
+const mockRecordMetrics = mock(() => Promise.resolve("/mock/metrics.json"));
+
+mock.module("../../../../metrics/record", () => ({
+  recordMetrics: mockRecordMetrics,
+}));
+
+import {
+  EMPTY_FILE,
+  FILE_NOT_UTF8,
+  FILE_TOO_LARGE,
+  SAMPLE_ROW_COUNT,
+} from "../constants";
 import { analyzeCsvStep } from "../";
 
 type StepOutput = {
-  headerRow: Array<string>;
-  sampleRows: Array<Array<string>>;
-  totalRows: number;
-  error?: string;
+  headerRow?: Array<string>;
+  sampleRows?: Array<Array<string>>;
+  totalRows?: number;
+  reason?: string;
 };
 
 const SAMPLES_DIR = join(import.meta.dir, "../../../../../../samples");
+const STARTED_AT = new Date().toISOString();
 
 function runStep(
   filePath: string,
   maxFileSize = Infinity,
 ): Promise<StepOutput> {
   return analyzeCsvStep.execute({
-    inputData: { filePath, maxFileSize },
+    inputData: {
+      filePath,
+      maxFileSize,
+      startedAt: STARTED_AT,
+      totalTemplateColumns: 3,
+    },
     bail: (r: unknown) => r,
   } as any) as Promise<StepOutput>;
 }
 
 describe("analyzeCsvStep", () => {
+  beforeEach(() => mockRecordMetrics.mockClear());
+
   describe("well-formed CSV", () => {
     const filePath = join(SAMPLES_DIR, "well-formed.csv");
 
@@ -86,7 +113,7 @@ describe("analyzeCsvStep", () => {
 
       expect(result.headerRow).toEqual(["name", "price", "sku"]);
       expect(result.totalRows).toBe(2);
-      expect(result.error).toBeUndefined();
+      expect(result.reason).toBeUndefined();
     });
   });
 
@@ -96,8 +123,8 @@ describe("analyzeCsvStep", () => {
     it("preserves non-ASCII characters in values", async () => {
       const result = await runStep(filePath);
 
-      expect(result.sampleRows[0]).toContain("Ñoño Product");
-      expect(result.error).toBeUndefined();
+      expect(result.sampleRows?.[0]).toContain("Ñoño Product");
+      expect(result.reason).toBeUndefined();
     });
   });
 
@@ -112,42 +139,47 @@ describe("analyzeCsvStep", () => {
       await rm(tmpFile, { force: true });
     });
 
-    it("returns encoding error message", async () => {
+    it("bails with the encoding reason and records metrics", async () => {
       const result = await runStep(tmpFile);
 
-      expect(result.error).toBe("File encoding is not UTF-8");
+      expect(result).toEqual({ reason: FILE_NOT_UTF8 });
+      expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("empty file", () => {
+    const tmpFile = join(SAMPLES_DIR, "tmp-empty.csv");
+
+    beforeAll(async () => {
+      await writeFile(tmpFile, "");
     });
 
-    it("returns empty data alongside the error", async () => {
+    afterAll(async () => {
+      await rm(tmpFile, { force: true });
+    });
+
+    it("bails with the empty-file reason and records metrics", async () => {
       const result = await runStep(tmpFile);
 
-      expect(result.headerRow).toEqual([]);
-      expect(result.sampleRows).toEqual([]);
-      expect(result.totalRows).toBe(0);
+      expect(result).toEqual({ reason: EMPTY_FILE });
+      expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
     });
   });
 
   describe("file size validation", () => {
     const filePath = join(SAMPLES_DIR, "well-formed.csv");
 
-    it("returns FILE_TOO_LARGE error when file exceeds maxFileSize", async () => {
+    it("bails with FILE_TOO_LARGE and records metrics when file exceeds maxFileSize", async () => {
       const result = await runStep(filePath, 50);
 
-      expect(result.error).toBe(FILE_TOO_LARGE);
-    });
-
-    it("returns empty data when file exceeds maxFileSize", async () => {
-      const result = await runStep(filePath, 50);
-
-      expect(result.headerRow).toEqual([]);
-      expect(result.sampleRows).toEqual([]);
-      expect(result.totalRows).toBe(0);
+      expect(result).toEqual({ reason: FILE_TOO_LARGE });
+      expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
     });
 
     it("parses normally when file is within maxFileSize", async () => {
       const result = await runStep(filePath, 200);
 
-      expect(result.error).toBeUndefined();
+      expect(result.reason).toBeUndefined();
       expect(result.headerRow).toEqual(["name", "price", "sku", "quantity"]);
     });
   });

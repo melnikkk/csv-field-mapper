@@ -7,12 +7,15 @@ import Papa from "papaparse";
 import { z } from "zod";
 import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
+import { recordMetrics } from "../../../metrics/record";
 
 export const applyColumnMappingStep = createStep({
   id: "apply-column-mapping-step",
   inputSchema: z.object({
     filePath: z.string(),
     approvedMappings: mappingResultsSchema,
+    startedAt: z.string(),
+    totalTemplateColumns: z.number(),
     _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   outputSchema: z.object({
@@ -20,8 +23,9 @@ export const applyColumnMappingStep = createStep({
     approvedMappings: mappingResultsSchema,
     _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
-  execute: async ({ inputData, bail }) => {
-    const { filePath, approvedMappings } = inputData;
+  execute: async ({ inputData, bail, mastra, runId }) => {
+    const { filePath, approvedMappings, startedAt, totalTemplateColumns } =
+      inputData;
 
     const missingRequired = approvedMappings
       .filter(
@@ -31,8 +35,15 @@ export const applyColumnMappingStep = createStep({
       .map((mapping) => mapping.templateColumn.title);
 
     if (missingRequired.length > 0) {
+      await recordMetrics({
+        startedAt,
+        totalTemplateColumns,
+        _runMetrics: inputData._runMetrics,
+        mastra,
+        workflowRunId: runId,
+      });
+
       return bail({
-        outputFilePath: undefined,
         reason: `Required columns not mapped: ${missingRequired.join(", ")}`,
       });
     }

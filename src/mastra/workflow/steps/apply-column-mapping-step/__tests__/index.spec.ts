@@ -1,7 +1,22 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from "bun:test";
 import { readFile, rm, writeFile } from "fs/promises";
 import { join } from "path";
 import Papa from "papaparse";
+
+const mockRecordMetrics = mock(() => Promise.resolve("/mock/metrics.json"));
+
+mock.module("../../../../metrics/record", () => ({
+  recordMetrics: mockRecordMetrics,
+}));
+
 import { applyColumnMappingStep } from "../";
 
 type Mapping = {
@@ -13,6 +28,8 @@ type Mapping = {
 function runStepRaw(inputData: {
   filePath: string;
   approvedMappings: Array<Mapping>;
+  startedAt?: string;
+  totalTemplateColumns?: number;
 }): Promise<unknown> {
   let bailArg: unknown;
   return applyColumnMappingStep
@@ -227,6 +244,8 @@ describe("applyColumnMappingStep", () => {
       await writeFile(tmpInput, "name,price\nWidget A,9.99", "utf-8");
     });
 
+    beforeEach(() => mockRecordMetrics.mockClear());
+
     afterAll(async () => {
       await rm(tmpInput, { force: true });
     });
@@ -248,7 +267,8 @@ describe("applyColumnMappingStep", () => {
         ],
       });
 
-      expect((result as any).mappedFilePath).toBeUndefined();
+      expect(result).toEqual({ reason: "Required columns not mapped: SKU" });
+      expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
     });
 
     it("includes missing required column titles in bail reason", async () => {

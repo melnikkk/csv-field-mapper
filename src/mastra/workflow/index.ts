@@ -24,6 +24,8 @@ csvFieldMapperWorkflow
   .map(async ({ inputData }) => ({
     filePath: inputData.filePath,
     maxFileSize: inputData.template.maxFileSize,
+    startedAt: inputData.startedAt,
+    totalTemplateColumns: inputData.template.columns.length,
   }))
   .then(analyzeCsvStep)
   .map(async ({ inputData, getInitData }) => ({
@@ -45,6 +47,9 @@ csvFieldMapperWorkflow
     filePath: getInitData<WorkflowInputData>().filePath,
     approvedMappings: inputData.approvedMappings,
     _runMetrics: inputData._runMetrics,
+    startedAt: getInitData<WorkflowInputData>().startedAt,
+    totalTemplateColumns:
+      getInitData<WorkflowInputData>().template.columns.length,
   }))
   .then(applyColumnMappingStep)
   .map(async ({ inputData, getInitData }) => ({
