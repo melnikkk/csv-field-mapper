@@ -64,7 +64,7 @@ flowchart TD
 
 ## Workflow steps
 
-**`analyze-csv`**: Reads the CSV, checks file size against `maxFileSize` and UTF-8 encoding, then extracts the header row, a sample of data rows, and the total row count.
+**`analyze-csv`**: Resolves `filePath` (symlinks followed) and bails if it is not an existing file inside the allowed input directory (see Workflow Input). Then reads the CSV, bails on empty files, files over `maxFileSize` and non-UTF-8 content, and extracts the header row, a sample of data rows, and the total row count.
 
 **`propose-column-mapping`**: Alias dictionary lookup, then Gemini Flash for any headers still unresolved.
 
@@ -206,7 +206,7 @@ The same scores are also stored via Mastra's scorer infrastructure, queryable th
 
 ## Workflow Input
 
-`filePath` and `template` are required. `startedAt` (ISO timestamp) defaults to the time the run starts; it is persisted across suspend/resume cycles so total duration is calculated accurately.
+`filePath` and `template` are required. `filePath` must point to a file inside the input directory given by the `INPUT_DIR` environment variable (default `samples`, resolved against the process working directory, so run the server from the repo root or set an absolute `INPUT_DIR`). Paths outside it, including `..` traversal and symlinks that resolve outside, make the workflow bail with a `reason`. `startedAt` (ISO timestamp) defaults to the time the run starts; it is persisted across suspend/resume cycles so total duration is calculated accurately.
 
 ## Tech Stack
 

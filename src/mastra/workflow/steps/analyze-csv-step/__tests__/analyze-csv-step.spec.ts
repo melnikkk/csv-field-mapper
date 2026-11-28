@@ -7,7 +7,8 @@ import {
   it,
   mock,
 } from "bun:test";
-import { rm, writeFile } from "fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "fs/promises";
+import { tmpdir } from "os";
 import { join } from "path";
 const mockRecordMetrics = mock(() => Promise.resolve("/mock/metrics.json"));
 
@@ -18,6 +19,7 @@ mock.module("../../../../metrics/record", () => ({
 import {
   EMPTY_FILE,
   FILE_NOT_UTF8,
+  FILE_OUTSIDE_INPUT_DIR,
   FILE_TOO_LARGE,
   SAMPLE_ROW_COUNT,
 } from "../constants";
@@ -163,6 +165,71 @@ describe("analyzeCsvStep", () => {
 
       expect(result).toEqual({ reason: EMPTY_FILE });
       expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("input directory restriction", () => {
+    const originalInputDir = process.env.INPUT_DIR;
+    let workDir: string;
+    let insideFile: string;
+    let outsideFile: string;
+
+    beforeAll(async () => {
+      workDir = await mkdtemp(join(tmpdir(), "analyze-csv-"));
+      await mkdir(join(workDir, "inbox"));
+      insideFile = join(workDir, "inbox", "ok.csv");
+      outsideFile = join(workDir, "secret.csv");
+      await writeFile(insideFile, "name,price\nA,1");
+      await writeFile(outsideFile, "name,price\nB,2");
+      await symlink(outsideFile, join(workDir, "inbox", "link.csv"));
+    });
+
+    afterAll(async () => {
+      process.env.INPUT_DIR = originalInputDir;
+      if (originalInputDir === undefined) delete process.env.INPUT_DIR;
+      await rm(workDir, { recursive: true, force: true });
+    });
+
+    beforeEach(() => {
+      process.env.INPUT_DIR = join(workDir, "inbox");
+    });
+
+    it("accepts a file inside INPUT_DIR", async () => {
+      const result = await runStep(insideFile);
+
+      expect(result.reason).toBeUndefined();
+      expect(result.headerRow).toEqual(["name", "price"]);
+    });
+
+    it("bails on a file outside INPUT_DIR and records metrics", async () => {
+      const result = await runStep(outsideFile);
+
+      expect(result).toEqual({ reason: FILE_OUTSIDE_INPUT_DIR });
+      expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
+    });
+
+    it("bails on ../ traversal out of INPUT_DIR", async () => {
+      const result = await runStep(join(workDir, "inbox", "..", "secret.csv"));
+
+      expect(result).toEqual({ reason: FILE_OUTSIDE_INPUT_DIR });
+    });
+
+    it("bails on a symlink inside INPUT_DIR that points outside", async () => {
+      const result = await runStep(join(workDir, "inbox", "link.csv"));
+
+      expect(result).toEqual({ reason: FILE_OUTSIDE_INPUT_DIR });
+    });
+
+    it("bails on a relative ../../etc/passwd style path", async () => {
+      const result = await runStep("../../etc/passwd");
+
+      expect(result).toEqual({ reason: FILE_OUTSIDE_INPUT_DIR });
+    });
+
+    it("bails when the file does not exist", async () => {
+      const result = await runStep(join(workDir, "inbox", "missing.csv"));
+
+      expect(result).toEqual({ reason: FILE_OUTSIDE_INPUT_DIR });
     });
   });
 
