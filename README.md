@@ -206,7 +206,7 @@ The same scores are also stored via Mastra's scorer infrastructure, queryable th
 
 ## Workflow Input
 
-`filePath` and `template` are required. `filePath` must point to a file inside the input directory given by the `INPUT_DIR` environment variable (default `samples`, resolved against the process working directory, so run the server from the repo root or set an absolute `INPUT_DIR`). Paths outside it, including `..` traversal and symlinks that resolve outside, make the workflow bail with a `reason`. `startedAt` (ISO timestamp) defaults to the time the run starts; it is persisted across suspend/resume cycles so total duration is calculated accurately.
+`filePath` and `template` are required. `filePath` must point to a file inside the input directory given by the `INPUT_DIR` environment variable (default `samples`). Relative `INPUT_DIR` and relative `filePath` values are resolved against the project root, found by walking up from the process working directory to the first ancestor containing a `samples/` directory (falling back to the working directory). This keeps them working under `mastra dev` (cwd `src/mastra/public`) and `mastra start` (cwd `.mastra/output`); absolute paths are used as-is. Paths outside it, including `..` traversal and symlinks that resolve outside, make the workflow bail with a `reason`. `startedAt` (ISO timestamp) defaults to the time the run starts; it is persisted across suspend/resume cycles so total duration is calculated accurately.
 
 ## Tech Stack
 
