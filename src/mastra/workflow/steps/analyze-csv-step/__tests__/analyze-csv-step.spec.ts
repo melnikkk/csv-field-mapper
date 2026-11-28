@@ -17,6 +17,7 @@ mock.module("../../../../metrics/record", () => ({
 }));
 
 import {
+  DUPLICATE_HEADERS_PREFIX,
   EMPTY_FILE,
   FILE_NOT_UTF8,
   FILE_OUTSIDE_INPUT_DIR,
@@ -164,6 +165,27 @@ describe("analyzeCsvStep", () => {
       const result = await runStep(tmpFile);
 
       expect(result).toEqual({ reason: EMPTY_FILE });
+      expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("duplicate headers", () => {
+    const tmpFile = join(SAMPLES_DIR, "tmp-duplicate-headers.csv");
+
+    beforeAll(async () => {
+      await writeFile(tmpFile, "name,Price, price ,sku,Name\nA,1,2,x,B");
+    });
+
+    afterAll(async () => {
+      await rm(tmpFile, { force: true });
+    });
+
+    it("bails listing repeated headers (case-insensitive, trimmed) and records metrics", async () => {
+      const result = await runStep(tmpFile);
+
+      expect(result).toEqual({
+        reason: `${DUPLICATE_HEADERS_PREFIX}price, Name`,
+      });
       expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
     });
   });

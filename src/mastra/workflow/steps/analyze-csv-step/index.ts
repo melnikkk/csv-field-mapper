@@ -5,12 +5,14 @@ import { z } from "zod";
 import { recordMetrics } from "../../../metrics/record";
 import { resolveInputFilePath } from "../../shared/utils/resolveInputFilePath";
 import {
+  DUPLICATE_HEADERS_PREFIX,
   EMPTY_FILE,
   FILE_OUTSIDE_INPUT_DIR,
   FILE_NOT_UTF8,
   FILE_TOO_LARGE,
   SAMPLE_ROW_COUNT,
 } from "./constants";
+import { findDuplicateHeaders } from "./utils";
 
 export const analyzeCsvStep = createStep({
   id: "analyze-csv",
@@ -67,6 +69,14 @@ export const analyzeCsvStep = createStep({
     }
 
     const [headerRow, ...dataRows] = data;
+
+    const duplicates = findDuplicateHeaders(headerRow);
+
+    if (duplicates.length > 0) {
+      return bailWithReason(
+        `${DUPLICATE_HEADERS_PREFIX}${duplicates.join(", ")}`,
+      );
+    }
 
     return {
       headerRow,
