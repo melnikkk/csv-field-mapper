@@ -8,6 +8,11 @@ import { geminiFlash } from "../../../models";
 import { buildCellValuesFixesPrompt } from "./prompts";
 import { llmCellFixSuggestionSchema } from "./schema";
 import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
+import { runValidators } from "../validate-cell-values-step/utils";
+import { CELL_FIX_BATCH_SIZE, getCellFixMaxCells } from "./constants";
+
+const cellKey = (cell: { columnTitle: string; rowIndex: number }): string =>
+  `${cell.columnTitle}::${cell.rowIndex}`;
 
 export const proposeCellValuesFixesStep = createStep({
   id: "propose-cell-values-fixes-step",
@@ -53,24 +58,40 @@ export const proposeCellValuesFixesStep = createStep({
       };
     }
 
-    const t0 = performance.now();
-    const { output: suggestions, usage } = await generateText({
-      model: geminiFlash,
-      output: Output.object({ schema: llmCellFixSuggestionSchema }),
-      prompt: buildCellValuesFixesPrompt(needsReview, templateColumns),
-    });
-    const durationMs = performance.now() - t0;
-
-    const fixMap = new Map(
-      suggestions.fixes.map((fix) => [
-        `${fix.columnTitle}::${fix.rowIndex}`,
-        fix.proposedValue,
-      ]),
+    const columnByTitle = new Map(
+      templateColumns.map((col) => [col.title, col]),
     );
+    const cellsForLlm = needsReview.slice(0, getCellFixMaxCells());
+    const fixMap = new Map<string, string>();
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let durationMs = 0;
+
+    for (let i = 0; i < cellsForLlm.length; i += CELL_FIX_BATCH_SIZE) {
+      const batch = cellsForLlm.slice(i, i + CELL_FIX_BATCH_SIZE);
+      const batchKeys = new Set(batch.map(cellKey));
+      const t0 = performance.now();
+      const { output: suggestions, usage } = await generateText({
+        model: geminiFlash,
+        output: Output.object({ schema: llmCellFixSuggestionSchema }),
+        prompt: buildCellValuesFixesPrompt(batch, templateColumns),
+      });
+      durationMs += performance.now() - t0;
+      inputTokens += usage?.inputTokens ?? 0;
+      outputTokens += usage?.outputTokens ?? 0;
+
+      for (const fix of suggestions.fixes) {
+        const key = cellKey(fix);
+        if (!batchKeys.has(key) || fix.proposedValue.trim() === "") continue;
+        const validators = columnByTitle.get(fix.columnTitle)?.validators ?? [];
+        if (runValidators(fix.proposedValue, validators).length === 0) {
+          fixMap.set(key, fix.proposedValue);
+        }
+      }
+    }
 
     const proposedFixes = needsReview.map((cell) => {
-      const key = `${cell.columnTitle}::${cell.rowIndex}`;
-      const proposedValue = fixMap.get(key);
+      const proposedValue = fixMap.get(cellKey(cell));
       return proposedValue !== undefined
         ? { ...cell, fixedValue: proposedValue }
         : cell;
@@ -84,9 +105,9 @@ export const proposeCellValuesFixesStep = createStep({
       _runMetrics: {
         ...inputData._runMetrics,
         cellFixesLlm: {
-          llmCalled: true,
-          inputTokens: usage?.inputTokens ?? 0,
-          outputTokens: usage?.outputTokens ?? 0,
+          llmCalled: cellsForLlm.length > 0,
+          inputTokens,
+          outputTokens,
           durationMs,
         },
       },
