@@ -12,22 +12,27 @@ export const mapColumnsBasedOnDictionary = (
   aliasDictionary: AliasDictionary | undefined,
 ): MappingResults => {
   const mappingResults: MappingResults = [];
+  const claimedHeaders = new Set<string>();
 
   for (const templateColumn of templateColumns) {
-    const columnAliases = aliasDictionary?.[templateColumn.title];
+    const candidateNames = new Set(
+      [
+        templateColumn.title,
+        ...(aliasDictionary?.[templateColumn.title] ?? []),
+      ].map((name) => name.toLowerCase()),
+    );
 
-    const csvHeader = columnAliases
-      ? headerRow.find((header) =>
-          columnAliases.some(
-            (alias) => alias.toLowerCase() === header.toLowerCase(),
-          ),
-        )
-      : undefined;
+    const csvHeader = headerRow.find(
+      (header) =>
+        !claimedHeaders.has(header) && candidateNames.has(header.toLowerCase()),
+    );
+
+    if (csvHeader !== undefined) claimedHeaders.add(csvHeader);
 
     mappingResults.push({
       templateColumn,
       csvHeader,
-      confidence: csvHeader ? 1 : 0,
+      confidence: csvHeader !== undefined ? 1 : 0,
     });
   }
 

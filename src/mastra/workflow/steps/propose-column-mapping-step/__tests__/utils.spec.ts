@@ -14,7 +14,7 @@ describe("mapColumnsBasedOnDictionary", () => {
 
   it("returns all unmapped when no alias dictionary provided", () => {
     const result = mapColumnsBasedOnDictionary(
-      ["first_name", "last_name", "email"],
+      ["first_name", "last_name", "email_address"],
       templateColumns,
       undefined,
     );
@@ -24,6 +24,62 @@ describe("mapColumnsBasedOnDictionary", () => {
       expect(r.csvHeader).toBeUndefined();
       expect(r.confidence).toBe(0);
     });
+  });
+
+  it("maps headers equal to template titles case-insensitively without an alias dictionary", () => {
+    const result = mapColumnsBasedOnDictionary(
+      ["FIRST NAME", "last name", "email"],
+      templateColumns,
+      undefined,
+    );
+
+    expect(result.map((r) => r.csvHeader)).toEqual([
+      "FIRST NAME",
+      "last name",
+      "email",
+    ]);
+    result.forEach((r) => expect(r.confidence).toBe(1));
+  });
+
+  it("maps well-formed sample headers fully with no alias dictionary", () => {
+    const result = mapColumnsBasedOnDictionary(
+      ["name", "price", "sku", "quantity"],
+      [
+        { title: "name", required: true },
+        { title: "price", required: true },
+        { title: "sku", required: true },
+        { title: "quantity", required: false },
+      ],
+      undefined,
+    );
+
+    expect(result.map((r) => r.csvHeader)).toEqual([
+      "name",
+      "price",
+      "sku",
+      "quantity",
+    ]);
+  });
+
+  it("does not map one header to two template columns when aliases overlap", () => {
+    const result = mapColumnsBasedOnDictionary(["name"], templateColumns, {
+      "First Name": ["name"],
+      "Last Name": ["name"],
+    });
+
+    expect(result[0]).toMatchObject({ csvHeader: "name", confidence: 1 });
+    expect(result[1]).toMatchObject({ csvHeader: undefined, confidence: 0 });
+  });
+
+  it("falls through to the next matching header when an earlier one is claimed", () => {
+    const result = mapColumnsBasedOnDictionary(
+      ["name", "surname"],
+      templateColumns,
+      { "First Name": ["name"], "Last Name": ["name", "surname"] },
+    );
+
+    expect(result[0].csvHeader).toBe("name");
+    expect(result[1].csvHeader).toBe("surname");
   });
 
   it("maps header when alias matches exactly", () => {
@@ -60,7 +116,7 @@ describe("mapColumnsBasedOnDictionary", () => {
 
   it("returns confidence 0 when alias dictionary has no entry for a column", () => {
     const result = mapColumnsBasedOnDictionary(
-      ["email"],
+      ["e-mail"],
       [{ title: "Email", required: false }],
       { "First Name": ["first_name"] },
     );
