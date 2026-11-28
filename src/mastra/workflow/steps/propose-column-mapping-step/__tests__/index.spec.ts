@@ -72,6 +72,58 @@ describe("proposeColumnMappingStep", () => {
     });
   });
 
+  describe("when nothing is left for the LLM to resolve", () => {
+    it.each([
+      ["empty headerRow", [] as Array<string>],
+      ["all headers claimed", ["First Name"]],
+    ])("skips the LLM for %s", async (_label, headerRow) => {
+      const result = await execute({
+        headerRow,
+        sampleRows: [],
+        templateColumns,
+      });
+
+      expect(mockGenerateText).not.toHaveBeenCalled();
+      expect(result._runMetrics.columnMappingLlm).toMatchObject({
+        llmCalled: false,
+        llmMapped: 0,
+        unmapped: headerRow.length === 0 ? 2 : 1,
+        inputTokens: 0,
+        outputTokens: 0,
+      });
+    });
+
+    it("skips the LLM for a header-only CSV", async () => {
+      await execute({ headerRow: [], sampleRows: [], templateColumns });
+
+      expect(mockGenerateText).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("when headers match template titles exactly", () => {
+    it("maps them with no alias dictionary and no LLM call", async () => {
+      const result = await execute({
+        headerRow: ["name", "price", "sku", "quantity"],
+        sampleRows: [["a", "1", "s", "2"]],
+        templateColumns: [
+          { title: "name", required: true },
+          { title: "price", required: true },
+          { title: "sku", required: true },
+          { title: "quantity", required: true },
+        ],
+      });
+
+      expect(mockGenerateText).not.toHaveBeenCalled();
+      expect(result.mappingResults.map((r: any) => r.csvHeader)).toEqual([
+        "name",
+        "price",
+        "sku",
+        "quantity",
+      ]);
+      expect(result._runMetrics.columnMappingLlm.unmapped).toBe(0);
+    });
+  });
+
   describe("when there are columns not resolved by the dictionary", () => {
     it("calls the LLM with unresolved headers", async () => {
       await execute({

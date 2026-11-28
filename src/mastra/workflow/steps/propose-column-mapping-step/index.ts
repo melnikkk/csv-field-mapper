@@ -51,14 +51,23 @@ export const proposeColumnMappingStep = createStep({
     const unmappedTemplateColumnTitles =
       getUnmappedTemplateColumnTitles(mappingResults);
 
-    if (unmappedTemplateColumnTitles.length === 0) {
+    const unresolvedHeadersWithSamples = getUnresolvedCsvHeadersWithSamples(
+      headerRow,
+      mappingResults,
+      sampleRows,
+    );
+
+    if (
+      unmappedTemplateColumnTitles.length === 0 ||
+      unresolvedHeadersWithSamples.length === 0
+    ) {
       return {
         mappingResults,
         _runMetrics: {
           columnMappingLlm: {
             aliasDictMapped: aliasDictMappedHeaders.size,
             llmMapped: 0,
-            unmapped: 0,
+            unmapped: unmappedTemplateColumnTitles.length,
             avgLlmConfidence: null,
             llmCalled: false,
             inputTokens: 0,
@@ -68,12 +77,6 @@ export const proposeColumnMappingStep = createStep({
         },
       };
     }
-
-    const unresolvedHeadersWithSamples = getUnresolvedCsvHeadersWithSamples(
-      headerRow,
-      mappingResults,
-      sampleRows,
-    );
 
     const t0 = performance.now();
     const { output: suggestions, usage } = await generateText({
