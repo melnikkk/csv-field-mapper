@@ -149,7 +149,7 @@ await run.resume({
   resumeData: {
     action: "revise",
     correctedFixes: [
-      /* same shape as proposedFixes */
+      { rowIndex: 3, columnTitle: "Email", fixedValue: "a@b.com" },
     ],
   },
 });
@@ -160,7 +160,9 @@ await run.resume({
 });
 ```
 
-`revise` on the mapping step takes `correctedMappings` (same shape as `mappingResults`).
+`revise` on the mapping step takes `correctedMappings: Array<{ templateColumnTitle: string; csvHeader: string | null }>` (`null` leaves the column unmapped). Entries are applied over the proposal with confidence 1; unmentioned columns keep their proposed mapping.
+
+`revise` on the fixes step takes `correctedFixes: Array<{ rowIndex, columnTitle, fixedValue }>`. Cells must appear in `proposedFixes` and values must pass the column's validators; unmentioned proposals keep the LLM value. Invalid revisions abort the run with a `reason`.
 
 ## Template Schema
 

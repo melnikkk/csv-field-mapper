@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { cellValidationResultsSchema } from "../../shared/schemas/validationSchema";
+
+export const correctedFixSchema = z.object({
+  rowIndex: z.number(),
+  columnTitle: z.string(),
+  fixedValue: z.string(),
+});
 
 export const resumeApproveCellValuesFixesStepSchema = z.discriminatedUnion(
   "action",
@@ -7,8 +12,10 @@ export const resumeApproveCellValuesFixesStepSchema = z.discriminatedUnion(
     z.object({ action: z.literal("approve") }),
     z.object({
       action: z.literal("revise"),
-      correctedFixes: cellValidationResultsSchema,
+      correctedFixes: z.array(correctedFixSchema),
     }),
     z.object({ action: z.literal("abort") }),
   ],
 );
+
+export type CorrectedFix = z.infer<typeof correctedFixSchema>;

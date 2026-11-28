@@ -5,11 +5,15 @@ import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { resumeApproveColumnMappingStepSchema } from "./schema";
 import { isMappingResultsFullyConfident } from "./utils";
 import { recordMetrics } from "../../../metrics/record";
+import { templateColumnsSchema } from "../../shared/schemas/templateSchema";
+import { reviseMappings } from "./reviseMappings";
 
 export const approveColumnMappingStep = createStep({
   id: "approve-column-mapping-step",
   inputSchema: z.object({
     mappingResults: mappingResultsSchema,
+    templateColumns: templateColumnsSchema,
+    headerRow: z.array(z.string()),
     startedAt: z.string(),
     totalTemplateColumns: z.number(),
     _runMetrics: runMetricsAccumulatorSchema.optional(),
@@ -23,8 +27,14 @@ export const approveColumnMappingStep = createStep({
   suspendSchema: z.object({ mappingResults: mappingResultsSchema }),
   resumeSchema: resumeApproveColumnMappingStepSchema,
   execute: async ({ inputData, suspend, resumeData, bail, mastra, runId }) => {
-    const { mappingResults, startedAt, totalTemplateColumns, _runMetrics } =
-      inputData;
+    const {
+      mappingResults,
+      templateColumns,
+      headerRow,
+      startedAt,
+      totalTemplateColumns,
+      _runMetrics,
+    } = inputData;
 
     if (!resumeData) {
       if (isMappingResultsFullyConfident(mappingResults)) {
@@ -60,8 +70,35 @@ export const approveColumnMappingStep = createStep({
       });
     }
 
-    const approvedMappings =
-      action === "revise" ? resumeData.correctedMappings : mappingResults;
+    let approvedMappings = mappingResults;
+
+    if (action === "revise") {
+      const revision = reviseMappings({
+        proposed: mappingResults,
+        corrections: resumeData.correctedMappings,
+        templateColumns,
+        headerRow,
+      });
+
+      if (!revision.ok) {
+        await recordMetrics({
+          startedAt,
+          totalTemplateColumns,
+          _runMetrics: {
+            ..._runMetrics,
+            approveMappingHitl: { suspended: true, revisionCount: 0 },
+          },
+          mastra,
+          workflowRunId: runId,
+        });
+
+        return bail({
+          reason: `Invalid column mapping revision: ${revision.errors.join("; ")}`,
+        });
+      }
+
+      approvedMappings = revision.mappings;
+    }
 
     return {
       approvedMappings,

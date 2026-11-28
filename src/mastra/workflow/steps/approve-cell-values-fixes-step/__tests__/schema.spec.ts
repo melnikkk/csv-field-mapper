@@ -21,14 +21,7 @@ describe("resumeApproveCellValuesFixesStepSchema", () => {
 
   it("parses revise action with correctedFixes", () => {
     const correctedFixes = [
-      {
-        rowIndex: 0,
-        columnTitle: "Name",
-        originalValue: "bad",
-        fixedValue: "good",
-        status: CellValueValidationStatus.AUTO_FIXED,
-        failedRules: [],
-      },
+      { rowIndex: 0, columnTitle: "Name", fixedValue: "good" },
     ];
     expect(
       resumeApproveCellValuesFixesStepSchema.parse({
@@ -36,6 +29,36 @@ describe("resumeApproveCellValuesFixesStepSchema", () => {
         correctedFixes,
       }),
     ).toEqual({ action: "revise", correctedFixes });
+  });
+
+  it("strips unexpected fields from correctedFixes", () => {
+    expect(
+      resumeApproveCellValuesFixesStepSchema.parse({
+        action: "revise",
+        correctedFixes: [
+          {
+            rowIndex: 0,
+            columnTitle: "Name",
+            fixedValue: "good",
+            status: CellValueValidationStatus.AUTO_FIXED,
+          },
+        ],
+      }),
+    ).toEqual({
+      action: "revise",
+      correctedFixes: [
+        { rowIndex: 0, columnTitle: "Name", fixedValue: "good" },
+      ],
+    });
+  });
+
+  it("rejects correctedFixes without fixedValue", () => {
+    expect(() =>
+      resumeApproveCellValuesFixesStepSchema.parse({
+        action: "revise",
+        correctedFixes: [{ rowIndex: 0, columnTitle: "Name" }],
+      }),
+    ).toThrow();
   });
 
   it("rejects an unknown action", () => {

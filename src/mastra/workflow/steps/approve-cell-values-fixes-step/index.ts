@@ -5,6 +5,8 @@ import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { resumeApproveCellValuesFixesStepSchema } from "./schema";
 import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 import { recordMetrics } from "../../../metrics/record";
+import { templateColumnsSchema } from "../../shared/schemas/templateSchema";
+import { reviseFixes } from "./reviseFixes";
 
 export const approveCellValuesFixesStep = createStep({
   id: "approve-cell-values-fixes-step",
@@ -12,6 +14,7 @@ export const approveCellValuesFixesStep = createStep({
     proposedFixes: cellValidationResultsSchema,
     autoFixed: cellValidationResultsSchema,
     approvedMappings: mappingResultsSchema,
+    templateColumns: templateColumnsSchema,
     validatedFilePath: z.string(),
     startedAt: z.string(),
     totalTemplateColumns: z.number(),
@@ -37,6 +40,7 @@ export const approveCellValuesFixesStep = createStep({
       proposedFixes,
       autoFixed,
       approvedMappings,
+      templateColumns,
       startedAt,
       totalTemplateColumns,
     } = inputData;
@@ -80,10 +84,36 @@ export const approveCellValuesFixesStep = createStep({
       });
     }
 
-    const approvedFixes =
-      resumeData.action === "revise"
-        ? resumeData.correctedFixes
-        : inputData.proposedFixes;
+    let approvedFixes = proposedFixes;
+
+    if (resumeData.action === "revise") {
+      const revision = reviseFixes({
+        proposed: proposedFixes,
+        corrections: resumeData.correctedFixes,
+        templateColumns,
+      });
+
+      if (!revision.ok) {
+        await recordMetrics({
+          outputFilePath: validatedFilePath,
+          autoFixed,
+          startedAt,
+          totalTemplateColumns,
+          _runMetrics: {
+            ...inputData._runMetrics,
+            approveCellFixesHitl: { suspended: true },
+          },
+          mastra,
+          workflowRunId: runId,
+        });
+
+        return bail({
+          reason: `Invalid cell value fixes revision: ${revision.errors.join("; ")}`,
+        });
+      }
+
+      approvedFixes = revision.fixes;
+    }
 
     return {
       approvedFixes,

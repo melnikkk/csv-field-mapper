@@ -21,6 +21,8 @@ const makeMapping = (
 const runExecute = (params: {
   inputData: {
     mappingResults: MappingResults;
+    templateColumns?: Array<MappingResults[number]["templateColumn"]>;
+    headerRow?: string[];
     startedAt?: string;
     totalTemplateColumns?: number;
     _runMetrics?: Record<string, unknown>;
@@ -108,41 +110,135 @@ describe("approveColumnMappingStep", () => {
       });
     });
 
-    it("returns correctedMappings directly on revise action without re-suspending", async () => {
-      const original = [makeMapping(0.8)];
-      const corrected = [makeMapping(1), makeMapping(1, "Email")];
+    const columns = [
+      { title: "Name", required: true },
+      { title: "Email", required: true },
+    ];
+    const headerRow = ["name", "email", "other"];
+    const reviseInput = (mappingResults: MappingResults) => ({
+      mappingResults,
+      templateColumns: columns,
+      headerRow,
+      _runMetrics: {},
+    });
+
+    it("applies corrections over the proposal with confidence 1 and keeps untouched mappings", async () => {
+      const proposed = [
+        { templateColumn: columns[0]!, csvHeader: "name", confidence: 0.6 },
+        { templateColumn: columns[1]!, csvHeader: undefined, confidence: 0 },
+      ];
       const suspend = mock(() => {});
 
       const result = await runExecute({
-        inputData: { mappingResults: original, _runMetrics: {} },
-        resumeData: { action: "revise", correctedMappings: corrected },
+        inputData: reviseInput(proposed),
+        resumeData: {
+          action: "revise",
+          correctedMappings: [
+            { templateColumnTitle: "Email", csvHeader: "email" },
+          ],
+        },
         suspend,
       });
 
       expect(suspend).not.toHaveBeenCalled();
       expect(result).toEqual({
-        approvedMappings: corrected,
+        approvedMappings: [
+          { templateColumn: columns[0], csvHeader: "name", confidence: 0.6 },
+          { templateColumn: columns[1], csvHeader: "email", confidence: 1 },
+        ],
         _runMetrics: {
           approveMappingHitl: { suspended: true, revisionCount: 1 },
         },
       });
-      expect(result._runMetrics.approveMappingHitl).toEqual({
-        suspended: true,
-        revisionCount: 1,
+    });
+
+    it("allows unmapping a column with a null csvHeader", async () => {
+      const result = await runExecute({
+        inputData: reviseInput([makeMapping(0.5, "Name")]),
+        resumeData: {
+          action: "revise",
+          correctedMappings: [{ templateColumnTitle: "Name", csvHeader: null }],
+        },
+      });
+
+      expect(result.approvedMappings[0]).toEqual({
+        templateColumn: columns[0],
+        csvHeader: undefined,
+        confidence: 1,
       });
     });
 
-    it("does not return the original proposal when revise provides corrections", async () => {
-      const original = [makeMapping(0.5, "Name")];
-      const corrected = [makeMapping(1, "FullName")];
-
+    it("rebuilds templateColumn from the template, ignoring injected columns", async () => {
       const result = await runExecute({
-        inputData: { mappingResults: original, _runMetrics: {} },
-        resumeData: { action: "revise", correctedMappings: corrected },
+        inputData: reviseInput([makeMapping(0.5, "Name")]),
+        resumeData: {
+          action: "revise",
+          correctedMappings: [
+            {
+              templateColumnTitle: "Name",
+              csvHeader: "other",
+              templateColumn: {
+                title: "Name",
+                required: false,
+                validators: [{ type: "regex", pattern: ".*" }],
+              },
+            },
+          ],
+        },
       });
 
-      expect(result.approvedMappings).not.toEqual(original);
-      expect(result.approvedMappings).toEqual(corrected);
+      expect(result.approvedMappings[0].templateColumn).toEqual(columns[0]);
+    });
+
+    it.each([
+      [
+        "unknown templateColumnTitle",
+        [{ templateColumnTitle: "Evil", csvHeader: "name" }],
+        "Unknown template column",
+      ],
+      [
+        "csvHeader not in headerRow",
+        [{ templateColumnTitle: "Name", csvHeader: "ghost" }],
+        "not found in file",
+      ],
+      [
+        "duplicate templateColumnTitle",
+        [
+          { templateColumnTitle: "Name", csvHeader: "name" },
+          { templateColumnTitle: "Name", csvHeader: "other" },
+        ],
+        "Duplicate entry",
+      ],
+      [
+        "same csvHeader assigned twice",
+        [
+          { templateColumnTitle: "Name", csvHeader: "other" },
+          { templateColumnTitle: "Email", csvHeader: "other" },
+        ],
+        "assigned to both",
+      ],
+      [
+        "csvHeader colliding with an untouched proposed mapping",
+        [{ templateColumnTitle: "Email", csvHeader: "name" }],
+        "assigned to both",
+      ],
+    ])("bails and records metrics on %s", async (_label, corrections, text) => {
+      const bail = mock(() => {});
+
+      await runExecute({
+        inputData: {
+          ...reviseInput([makeMapping(0.5, "Name")]),
+          startedAt: new Date().toISOString(),
+          totalTemplateColumns: 2,
+        },
+        resumeData: { action: "revise", correctedMappings: corrections },
+        bail,
+      });
+
+      expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
+      expect(bail).toHaveBeenCalledWith({
+        reason: expect.stringContaining(text),
+      });
     });
 
     it("returns approvedMappings from inputData on approve action", async () => {

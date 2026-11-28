@@ -27,6 +27,7 @@ const runExecute = (params: {
     proposedFixes: CellValidationResult[];
     autoFixed: CellValidationResult[];
     approvedMappings: unknown[];
+    templateColumns?: unknown[];
     validatedFilePath: string;
     startedAt?: string;
     totalTemplateColumns?: number;
@@ -146,27 +147,147 @@ describe("approveCellValuesFixesStep", () => {
       });
     });
 
-    it("returns correctedFixes as approvedFixes on revise action", async () => {
-      const original = [makeFix()];
-      const corrected = [makeFix({ fixedValue: "corrected" })];
+    const templateColumns = [
+      {
+        title: "Name",
+        required: true,
+        validators: [{ type: "minLength", min: 3 }],
+      },
+      { title: "Note", required: false },
+    ];
+    const reviseInput = (proposedFixes: CellValidationResult[]) => ({
+      proposedFixes,
+      autoFixed: [],
+      approvedMappings: [],
+      templateColumns,
+      validatedFilePath: "/tmp/test.csv",
+      _runMetrics: {},
+    });
+
+    it("applies human values to matching proposals and keeps untouched ones", async () => {
+      const proposed = [
+        makeFix({ rowIndex: 0, fixedValue: "llm0" }),
+        makeFix({ rowIndex: 1, fixedValue: "llm1" }),
+      ];
 
       const result = await runExecute({
-        inputData: {
-          proposedFixes: original,
-          autoFixed: [],
-          approvedMappings: [],
-          validatedFilePath: "/tmp/test.csv",
-          _runMetrics: {},
+        inputData: reviseInput(proposed),
+        resumeData: {
+          action: "revise",
+          correctedFixes: [
+            { rowIndex: 1, columnTitle: "Name", fixedValue: "human" },
+          ],
         },
-        resumeData: { action: "revise", correctedFixes: corrected },
       });
 
       expect(result).toEqual({
-        approvedFixes: corrected,
+        approvedFixes: [proposed[0], { ...proposed[1], fixedValue: "human" }],
         autoFixed: [],
         approvedMappings: [],
         validatedFilePath: "/tmp/test.csv",
         _runMetrics: { approveCellFixesHitl: { suspended: true } },
+      });
+    });
+
+    it("ignores injected fields beyond the corrected value", async () => {
+      const proposed = [makeFix()];
+
+      const result = await runExecute({
+        inputData: reviseInput(proposed),
+        resumeData: {
+          action: "revise",
+          correctedFixes: [
+            {
+              rowIndex: 0,
+              columnTitle: "Name",
+              fixedValue: "human",
+              originalValue: "forged",
+              failedRules: ["x"],
+            },
+          ],
+        },
+      });
+
+      expect(result.approvedFixes).toEqual([
+        { ...proposed[0], fixedValue: "human" },
+      ]);
+    });
+
+    it("accepts an empty value for an optional column without validators", async () => {
+      const proposed = [makeFix({ columnTitle: "Note" })];
+
+      const result = await runExecute({
+        inputData: reviseInput(proposed),
+        resumeData: {
+          action: "revise",
+          correctedFixes: [
+            { rowIndex: 0, columnTitle: "Note", fixedValue: "" },
+          ],
+        },
+      });
+
+      expect(result.approvedFixes[0].fixedValue).toBe("");
+    });
+
+    it.each([
+      [
+        "cell not in proposedFixes (row)",
+        { rowIndex: 5, columnTitle: "Name", fixedValue: "valid" },
+        "not in proposed fixes",
+      ],
+      [
+        "cell not in proposedFixes (column)",
+        { rowIndex: 0, columnTitle: "Note", fixedValue: "valid" },
+        "not in proposed fixes",
+      ],
+      [
+        "value failing validators",
+        { rowIndex: 0, columnTitle: "Name", fixedValue: "ab" },
+        "Invalid value",
+      ],
+      [
+        "empty value for a required column",
+        { rowIndex: 0, columnTitle: "Name", fixedValue: "  " },
+        "required",
+      ],
+    ])("bails and records metrics on %s", async (_label, correction, text) => {
+      const bail = mock(() => {});
+
+      await runExecute({
+        inputData: {
+          ...reviseInput([makeFix()]),
+          startedAt: new Date().toISOString(),
+          totalTemplateColumns: 2,
+        },
+        resumeData: { action: "revise", correctedFixes: [correction] },
+        bail,
+      });
+
+      expect(mockRecordMetrics).toHaveBeenCalledTimes(1);
+      expect(bail).toHaveBeenCalledWith({
+        reason: expect.stringContaining(text),
+      });
+    });
+
+    it("bails on duplicate corrections for the same cell", async () => {
+      const bail = mock(() => {});
+      const correction = {
+        rowIndex: 0,
+        columnTitle: "Name",
+        fixedValue: "good",
+      };
+
+      await runExecute({
+        inputData: reviseInput([makeFix()]),
+        resumeData: {
+          action: "revise",
+          correctedFixes: [correction, correction],
+        },
+        bail,
+      });
+
+      expect(bail).toHaveBeenCalledWith({
+        reason: expect.stringContaining("Duplicate"),
       });
     });
   });
