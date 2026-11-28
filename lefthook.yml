@@ -1,0 +1,12 @@
+pre-commit:
+  piped: true
+  jobs:
+    - name: lint
+      glob: "*.ts"
+      run: bunx oxlint --fix {staged_files}
+      stage_fixed: true
+
+    - name: format
+      glob: "*.{ts,json,md}"
+      run: bunx oxfmt {staged_files}
+      stage_fixed: true
