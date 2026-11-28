@@ -90,6 +90,34 @@ describe("validateCellValuesStep", () => {
     });
   });
 
+  describe("empty values", () => {
+    let result: StepOutput;
+
+    beforeAll(async () => {
+      const inputPath = await createInputFile([
+        ["Email", "Qty"],
+        ["", ""],
+      ]);
+      result = await runStep({
+        mappedFilePath: inputPath,
+        templateColumns: [
+          { title: "Email", required: false, validators: [{ type: "email" }] },
+          { title: "Qty", required: true, validators: [{ type: "numeric" }] },
+        ],
+      });
+    });
+
+    afterAll(() => rm(result?.validatedFilePath, { force: true }));
+
+    it("passes the empty optional email and fails the empty required numeric", () => {
+      expect(result.needsReview).toHaveLength(1);
+      expect(result.needsReview[0]).toMatchObject({
+        columnTitle: "Qty",
+        failedRules: ["Value is required"],
+      });
+    });
+  });
+
   describe("valid cells", () => {
     let result: StepOutput;
 

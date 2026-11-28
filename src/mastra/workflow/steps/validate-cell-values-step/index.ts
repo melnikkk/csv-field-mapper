@@ -10,7 +10,7 @@ import {
   cellValidationResultsSchema,
   type CellValidationResults,
 } from "../../shared/schemas/validationSchema";
-import { applyFixer, runValidators } from "./utils";
+import { applyFixer, createCellValidator } from "./utils";
 import { CellValueValidationStatus } from "./constants";
 import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
@@ -56,11 +56,12 @@ export const validateCellValuesStep = createStep({
         continue;
       }
 
-      const { validators, fixerStrategy } = column;
+      const { fixerStrategy } = column;
+      const validate = createCellValidator(column);
 
       for (let rowIndex = 0; rowIndex < outputRows.length; rowIndex++) {
         const originalValue = outputRows[rowIndex][columnIndex] ?? "";
-        const failedRules = runValidators(originalValue, validators);
+        const failedRules = validate(originalValue);
 
         if (failedRules.length === 0) {
           continue;
@@ -69,7 +70,7 @@ export const validateCellValuesStep = createStep({
         if (fixerStrategy) {
           const fixedValue = applyFixer(originalValue, fixerStrategy);
 
-          if (runValidators(fixedValue, validators).length === 0) {
+          if (validate(fixedValue).length === 0) {
             outputRows[rowIndex][columnIndex] = fixedValue;
             autoFixed.push({
               rowIndex: rowIndex,

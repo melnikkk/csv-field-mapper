@@ -1,12 +1,32 @@
 import z from "zod";
 
+export const MAX_REGEX_PATTERN_LENGTH = 500;
+
+const isCompilableRegex = (pattern: string): boolean => {
+  try {
+    new RegExp(pattern);
+
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const regexPatternSchema = z
+  .string()
+  .max(
+    MAX_REGEX_PATTERN_LENGTH,
+    `Regex pattern must be at most ${MAX_REGEX_PATTERN_LENGTH} characters`,
+  )
+  .refine(isCompilableRegex, "Invalid regex pattern");
+
 export const validatorRuleSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("required") }),
   z.object({ type: z.literal("minLength"), min: z.number() }),
   z.object({ type: z.literal("maxLength"), max: z.number() }),
   z.object({
     type: z.literal("regex"),
-    pattern: z.string(),
+    pattern: regexPatternSchema,
     message: z.string().optional(),
   }),
   z.object({
