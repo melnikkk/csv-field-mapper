@@ -86,6 +86,7 @@ export async function recordMetrics(
                 inputTokens: col.inputTokens,
                 outputTokens: col.outputTokens,
                 durationMs: col.durationMs,
+                error: col.llmError,
               }
             : null,
         cellValueFixes:
@@ -95,6 +96,7 @@ export async function recordMetrics(
                 inputTokens: cellFixes.inputTokens,
                 outputTokens: cellFixes.outputTokens,
                 durationMs: cellFixes.durationMs,
+                error: cellFixes.llmError,
               }
             : null,
       },

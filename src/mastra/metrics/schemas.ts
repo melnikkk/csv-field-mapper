@@ -11,6 +11,7 @@ export const runMetricsAccumulatorSchema = z.object({
       inputTokens: z.number(),
       outputTokens: z.number(),
       durationMs: z.number(),
+      llmError: z.string().optional(),
     })
     .optional(),
   approveMappingHitl: z
@@ -31,6 +32,7 @@ export const runMetricsAccumulatorSchema = z.object({
       inputTokens: z.number(),
       outputTokens: z.number(),
       durationMs: z.number(),
+      llmError: z.string().optional(),
     })
     .optional(),
   approveCellFixesHitl: z
@@ -70,6 +72,7 @@ export const runMetricsSchema = z.object({
           inputTokens: z.number(),
           outputTokens: z.number(),
           durationMs: z.number(),
+          error: z.string().optional(),
         })
         .nullable(),
       cellValueFixes: z
@@ -78,6 +81,7 @@ export const runMetricsSchema = z.object({
           inputTokens: z.number(),
           outputTokens: z.number(),
           durationMs: z.number(),
+          error: z.string().optional(),
         })
         .nullable(),
     }),

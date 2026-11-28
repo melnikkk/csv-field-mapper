@@ -1,12 +1,16 @@
 import { z } from "zod";
 import { createStep } from "@mastra/core/workflows";
-import { generateText, Output } from "ai";
+import { Output } from "ai";
 import { cellValidationResultsSchema } from "../../shared/schemas/validationSchema";
 import { templateColumnsSchema } from "../../shared/schemas/templateSchema";
 import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { geminiFlash } from "../../../models";
 import { buildCellValuesFixesPrompt } from "./prompts";
 import { llmCellFixSuggestionSchema } from "./schema";
+import {
+  generateTextWithRetry,
+  getErrorMessage,
+} from "../../shared/utils/generateTextWithRetry";
 import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 import { runValidators } from "../validate-cell-values-step/utils";
 import { CELL_FIX_BATCH_SIZE, getCellFixMaxCells } from "./constants";
@@ -66,16 +70,27 @@ export const proposeCellValuesFixesStep = createStep({
     let inputTokens = 0;
     let outputTokens = 0;
     let durationMs = 0;
+    const llmErrors: Array<string> = [];
 
     for (let i = 0; i < cellsForLlm.length; i += CELL_FIX_BATCH_SIZE) {
       const batch = cellsForLlm.slice(i, i + CELL_FIX_BATCH_SIZE);
       const batchKeys = new Set(batch.map(cellKey));
       const t0 = performance.now();
-      const { output: suggestions, usage } = await generateText({
-        model: geminiFlash,
-        output: Output.object({ schema: llmCellFixSuggestionSchema }),
-        prompt: buildCellValuesFixesPrompt(batch, templateColumns),
-      });
+      let suggestions: z.infer<typeof llmCellFixSuggestionSchema>;
+      let usage: { inputTokens?: number; outputTokens?: number } | undefined;
+      try {
+        const result = await generateTextWithRetry({
+          model: geminiFlash,
+          output: Output.object({ schema: llmCellFixSuggestionSchema }),
+          prompt: buildCellValuesFixesPrompt(batch, templateColumns),
+        });
+        suggestions = result.output;
+        usage = result.usage;
+      } catch (error) {
+        durationMs += performance.now() - t0;
+        llmErrors.push(getErrorMessage(error));
+        continue;
+      }
       durationMs += performance.now() - t0;
       inputTokens += usage?.inputTokens ?? 0;
       outputTokens += usage?.outputTokens ?? 0;
@@ -109,6 +124,9 @@ export const proposeCellValuesFixesStep = createStep({
           inputTokens,
           outputTokens,
           durationMs,
+          ...(llmErrors.length > 0 && {
+            llmError: `${llmErrors.length} batch(es) failed: ${llmErrors[0]}`,
+          }),
         },
       },
     };

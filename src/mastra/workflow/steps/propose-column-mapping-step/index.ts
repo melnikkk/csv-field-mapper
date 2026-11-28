@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createStep } from "@mastra/core/workflows";
-import { generateText, Output } from "ai";
+import { Output } from "ai";
 import {
   templateColumnsSchema,
   aliasDictionarySchema,
@@ -18,6 +18,10 @@ import {
   MappingResults,
   mappingResultsSchema,
 } from "../../shared/schemas/mappingSchema";
+import {
+  generateTextWithRetry,
+  getErrorMessage,
+} from "../../shared/utils/generateTextWithRetry";
 import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 
 export const proposeColumnMappingStep = createStep({
@@ -79,14 +83,23 @@ export const proposeColumnMappingStep = createStep({
     }
 
     const t0 = performance.now();
-    const { output: suggestions, usage } = await generateText({
-      model: geminiFlash,
-      output: Output.object({ schema: llmMapSuggestionSchema }),
-      prompt: buildColumnMappingPrompt(
-        unresolvedHeadersWithSamples,
-        templateColumns,
-      ),
-    });
+    let suggestions: z.infer<typeof llmMapSuggestionSchema> = { mappings: [] };
+    let usage: { inputTokens?: number; outputTokens?: number } | undefined;
+    let llmError: string | undefined;
+    try {
+      const result = await generateTextWithRetry({
+        model: geminiFlash,
+        output: Output.object({ schema: llmMapSuggestionSchema }),
+        prompt: buildColumnMappingPrompt(
+          unresolvedHeadersWithSamples,
+          templateColumns,
+        ),
+      });
+      suggestions = result.output;
+      usage = result.usage;
+    } catch (error) {
+      llmError = getErrorMessage(error);
+    }
     const durationMs = performance.now() - t0;
 
     const claimedCsvHeaders = new Set(aliasDictMappedHeaders);
@@ -136,6 +149,7 @@ export const proposeColumnMappingStep = createStep({
           inputTokens: usage?.inputTokens ?? 0,
           outputTokens: usage?.outputTokens ?? 0,
           durationMs,
+          ...(llmError !== undefined && { llmError }),
         },
       },
     };
