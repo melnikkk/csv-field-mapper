@@ -25,7 +25,7 @@ export const buildColumnMappingPrompt = (
 
   return [
     "Map each CSV header to the most appropriate template column.",
-    "Set templateColumn to null if no confident match exists (confidence < 0.4).",
+    "Set templateColumnTitle to null if no confident match exists (confidence < 0.4).",
     "",
     "CSV headers to resolve:",
     headersText,

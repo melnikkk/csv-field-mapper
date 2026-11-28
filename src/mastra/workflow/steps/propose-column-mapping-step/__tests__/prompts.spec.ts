@@ -61,9 +61,9 @@ describe("buildColumnMappingPrompt", () => {
     expect(prompt).not.toContain("Email (required)");
   });
 
-  it("includes instruction to set templateColumn null for low-confidence matches", () => {
+  it("includes instruction to set templateColumnTitle null for low-confidence matches", () => {
     const prompt = buildColumnMappingPrompt([], []);
 
-    expect(prompt).toContain("null");
+    expect(prompt).toContain("Set templateColumnTitle to null");
   });
 });
