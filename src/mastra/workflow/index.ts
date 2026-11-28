@@ -80,8 +80,12 @@ csvFieldMapperWorkflow
   }))
   .then(approveCellValuesFixesStep)
   .then(applyCellValuesFixesStep)
-  .map(async ({ inputData, getInitData }) => ({
+  .map(async ({ inputData, getInitData, getStepResult }) => ({
     outputFilePath: inputData.outputFilePath,
+    intermediateFilePaths: [
+      getStepResult(applyColumnMappingStep).mappedFilePath,
+      getStepResult(validateCellValuesStep).validatedFilePath,
+    ],
     autoFixed: inputData.autoFixed,
     appliedFixes: inputData.appliedFixes,
     approvedMappings: inputData.approvedMappings,

@@ -92,7 +92,7 @@ describe("applyCellValuesFixesStep", () => {
     expect(output).not.toContain("bad");
   });
 
-  it("deletes the original validated file after applying fixes", async () => {
+  it("keeps the validated file and can be re-run with the same input", async () => {
     const inputPath = await writeTempCsv("Name,Age\nbad,25\n");
     const { outputFilePath } = await runExecute({
       approvedFixes: [
@@ -107,7 +107,19 @@ describe("applyCellValuesFixesStep", () => {
     const exists = await readFile(inputPath)
       .then(() => true)
       .catch(() => false);
-    expect(exists).toBe(false);
+    expect(exists).toBe(true);
+
+    const rerun = await runExecute({
+      approvedFixes: [
+        makeFix({ rowIndex: 0, columnTitle: "Name", fixedValue: "fixed" }),
+      ],
+      autoFixed: [],
+      approvedMappings: [],
+      validatedFilePath: inputPath,
+    });
+    outputsToClean.push(rerun.outputFilePath);
+
+    expect(await readFile(rerun.outputFilePath, "utf-8")).toContain("fixed");
   });
 
   it("applies the fix only to the targeted row, leaving other rows unchanged", async () => {

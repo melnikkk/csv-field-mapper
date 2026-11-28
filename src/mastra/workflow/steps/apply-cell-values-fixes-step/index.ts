@@ -1,5 +1,5 @@
 import { createStep } from "@mastra/core/workflows";
-import { mkdir, readFile, rm, writeFile } from "fs/promises";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import Papa from "papaparse";
@@ -60,8 +60,6 @@ export const applyCellValuesFixesStep = createStep({
         outputRows[fix.rowIndex][colIdx] = fix.fixedValue!;
       }
     }
-
-    await rm(validatedFilePath, { force: true });
 
     const outputsDir = getOutputsDirPath();
     await mkdir(outputsDir, { recursive: true });

@@ -1,6 +1,20 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
+import { access, mkdtemp, writeFile } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
 
-const mockRecordMetrics = mock(() => Promise.resolve("/mock/metrics.json"));
+const filesExistWhenRecorded: boolean[] = [];
+let recordedFilePath = "";
+const mockRecordMetrics = mock(async (input: { outputFilePath?: string }) => {
+  recordedFilePath = input.outputFilePath ?? "";
+  filesExistWhenRecorded.push(
+    await access(recordedFilePath).then(
+      () => true,
+      () => false,
+    ),
+  );
+  return "/mock/metrics.json";
+});
 
 mock.module("../../../../metrics/record", () => ({
   recordMetrics: mockRecordMetrics,
@@ -35,11 +49,13 @@ const runExecute = (params: {
   resumeData?: unknown;
   suspend?: (payload: unknown) => unknown;
   bail?: (payload: unknown) => unknown;
+  getStepResult?: (step: unknown) => unknown;
 }) =>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (approveCellValuesFixesStep as any).execute({
     suspend: () => {},
     bail: () => {},
+    getStepResult: () => undefined,
     ...params,
   });
 
@@ -118,6 +134,33 @@ describe("approveCellValuesFixesStep", () => {
         outputFilePath: undefined,
         reason: expect.any(String),
       });
+    });
+
+    it("records metrics first, then deletes the validated and mapped files", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "approve-abort-"));
+      const validatedFilePath = join(dir, "validated.csv");
+      const mappedFilePath = join(dir, "mapped.csv");
+      await writeFile(validatedFilePath, "a\n1");
+      await writeFile(mappedFilePath, "a\n1");
+      filesExistWhenRecorded.length = 0;
+
+      await runExecute({
+        inputData: {
+          proposedFixes: [makeFix()],
+          autoFixed: [],
+          approvedMappings: [],
+          validatedFilePath,
+          startedAt: new Date().toISOString(),
+          totalTemplateColumns: 1,
+        },
+        resumeData: { action: "abort" },
+        getStepResult: () => ({ mappedFilePath }),
+      });
+
+      expect(recordedFilePath).toBe(validatedFilePath);
+      expect(filesExistWhenRecorded).toEqual([true]);
+      await expect(access(validatedFilePath)).rejects.toThrow();
+      await expect(access(mappedFilePath)).rejects.toThrow();
     });
 
     it("returns proposedFixes as approvedFixes on approve action", async () => {

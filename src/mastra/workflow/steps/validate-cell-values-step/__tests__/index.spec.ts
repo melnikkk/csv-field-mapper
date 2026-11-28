@@ -286,17 +286,25 @@ describe("validateCellValuesStep", () => {
     });
   });
 
-  describe("input file cleanup", () => {
-    it("deletes mappedFilePath after reading", async () => {
+  describe("retry safety", () => {
+    it("keeps mappedFilePath so the step can be re-run with the same input", async () => {
       const inputPath = await createInputFile([["Name"], ["Widget"]]);
-      const result = await runStep({
+      const input = {
         mappedFilePath: inputPath,
         templateColumns: [{ title: "Name", required: true }],
-      });
+      };
 
-      await rm(result.validatedFilePath, { force: true });
+      const first = await runStep(input);
+      const second = await runStep(input);
 
-      await expect(access(inputPath)).rejects.toThrow();
+      await access(inputPath);
+      expect(await parseOutputFile(second.validatedFilePath)).toEqual(
+        await parseOutputFile(first.validatedFilePath),
+      );
+
+      await rm(first.validatedFilePath, { force: true });
+      await rm(second.validatedFilePath, { force: true });
+      await rm(inputPath, { force: true });
     });
   });
 });

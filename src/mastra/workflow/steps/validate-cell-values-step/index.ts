@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createStep } from "@mastra/core/workflows";
-import { mkdir, readFile, rm, writeFile } from "fs/promises";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { getOutputsDirPath } from "../../shared/utils/getOutputsDirPath";
@@ -38,8 +38,6 @@ export const validateCellValuesStep = createStep({
       header: false,
       skipEmptyLines: true,
     });
-
-    await rm(mappedFilePath, { force: true });
 
     const [headers = [], ...dataRows] = data;
     const templateColumnByTitle = new Map(

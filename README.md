@@ -78,9 +78,9 @@ flowchart TD
 
 **`approve-cell-values-fixes`** (suspend point 2): If fixes were proposed, suspends and presents `proposedFixes` together with `autoFixed`. Resume actions: `approve`, `revise` (supply `correctedFixes`; no further suspension), or `abort`.
 
-**`apply-cell-values-fixes`**: Applies approved fixes by row index and column name, deletes the intermediate validated file, and writes the final CSV.
+**`apply-cell-values-fixes`**: Applies approved fixes by row index and column name and writes the final CSV. Steps never delete their input files, so they are safe to retry.
 
-**`generate-metrics-report`**: Assembles `RunMetrics`, runs the three scorers, and writes `csv-mapper-metrics-<runId>.json`.
+**`generate-metrics-report`**: Assembles `RunMetrics`, runs the three scorers, and writes `csv-mapper-metrics-<runId>.json`, then deletes the intermediate mapped and validated CSVs (the same cleanup runs when the user aborts cell value fixes).
 
 Output files (intermediate and final CSVs, metrics JSON) are written to `src/mastra/workflow/outputs/` (resolved by `getOutputsDirPath`; gitignored).
 

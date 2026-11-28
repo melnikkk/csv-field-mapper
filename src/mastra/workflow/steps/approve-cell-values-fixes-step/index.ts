@@ -5,6 +5,8 @@ import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { resumeApproveCellValuesFixesStepSchema } from "./schema";
 import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 import { recordMetrics } from "../../../metrics/record";
+import { cleanupIntermediateFiles } from "../../shared/utils/cleanupIntermediateFiles";
+import { applyColumnMappingStep } from "../apply-column-mapping-step";
 
 export const approveCellValuesFixesStep = createStep({
   id: "approve-cell-values-fixes-step",
@@ -31,7 +33,15 @@ export const approveCellValuesFixesStep = createStep({
     autoFixed: cellValidationResultsSchema,
   }),
   resumeSchema: resumeApproveCellValuesFixesStepSchema,
-  execute: async ({ inputData, suspend, resumeData, bail, mastra, runId }) => {
+  execute: async ({
+    inputData,
+    suspend,
+    resumeData,
+    bail,
+    mastra,
+    runId,
+    getStepResult,
+  }) => {
     const {
       validatedFilePath,
       proposedFixes,
@@ -73,6 +83,11 @@ export const approveCellValuesFixesStep = createStep({
         mastra,
         workflowRunId: runId,
       });
+
+      await cleanupIntermediateFiles([
+        validatedFilePath,
+        getStepResult(applyColumnMappingStep)?.mappedFilePath,
+      ]);
 
       return bail({
         outputFilePath: undefined,

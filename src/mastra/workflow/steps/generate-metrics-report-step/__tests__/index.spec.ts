@@ -1,4 +1,7 @@
 import { describe, expect, it, mock, beforeEach } from "bun:test";
+import { access, mkdtemp, writeFile } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
 
 const mockWriteMetricsReport = mock((metrics: any, outputFilePath: string) =>
   Promise.resolve(
@@ -45,6 +48,7 @@ const baseInput = {
   ],
   startedAt: new Date(Date.now() - 3000).toISOString(),
   totalTemplateColumns: 2,
+  intermediateFilePaths: [] as Array<string | undefined>,
   _runMetrics: {
     columnMappingLlm: {
       aliasDictMapped: 2,
@@ -95,5 +99,41 @@ describe("generateMetricsReportStep", () => {
     expect(result.approvedMappings).toEqual(baseInput.approvedMappings);
     expect(result.autoFixed).toEqual(baseInput.autoFixed);
     expect(result.appliedFixes).toEqual(baseInput.appliedFixes);
+  });
+
+  it("deletes intermediate files but never the final output file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "final-step-"));
+    const mapped = join(dir, "mapped.csv");
+    const validated = join(dir, "validated.csv");
+    const output = join(dir, "final.csv");
+    await Promise.all(
+      [mapped, validated, output].map((p) => writeFile(p, "a")),
+    );
+
+    await execute({
+      ...baseInput,
+      outputFilePath: output,
+      intermediateFilePaths: [mapped, validated, undefined],
+    });
+
+    await expect(access(mapped)).rejects.toThrow();
+    await expect(access(validated)).rejects.toThrow();
+    await access(output);
+  });
+
+  it("keeps the validated file when it is also the output file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "final-step-"));
+    const mapped = join(dir, "mapped.csv");
+    const validated = join(dir, "validated.csv");
+    await Promise.all([mapped, validated].map((p) => writeFile(p, "a")));
+
+    await execute({
+      ...baseInput,
+      outputFilePath: validated,
+      intermediateFilePaths: [mapped, validated],
+    });
+
+    await expect(access(mapped)).rejects.toThrow();
+    await access(validated);
   });
 });

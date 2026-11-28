@@ -4,6 +4,7 @@ import { cellValidationResultsSchema } from "../../shared/schemas/validationSche
 import { mappingResultsSchema } from "../../shared/schemas/mappingSchema";
 import { runMetricsAccumulatorSchema } from "../../../metrics/schemas";
 import { recordMetrics } from "../../../metrics/record";
+import { cleanupIntermediateFiles } from "../../shared/utils/cleanupIntermediateFiles";
 
 export const generateMetricsReportStep = createStep({
   id: "generate-metrics-report-step",
@@ -14,6 +15,7 @@ export const generateMetricsReportStep = createStep({
     approvedMappings: mappingResultsSchema,
     startedAt: z.string(),
     totalTemplateColumns: z.number(),
+    intermediateFilePaths: z.array(z.string().optional()),
     _runMetrics: runMetricsAccumulatorSchema.optional(),
   }),
   outputSchema: z.object({
@@ -31,6 +33,7 @@ export const generateMetricsReportStep = createStep({
       approvedMappings,
       startedAt,
       totalTemplateColumns,
+      intermediateFilePaths,
       _runMetrics,
     } = inputData;
 
@@ -44,6 +47,10 @@ export const generateMetricsReportStep = createStep({
       mastra,
       workflowRunId: runId,
     });
+
+    await cleanupIntermediateFiles(
+      intermediateFilePaths.filter((path) => path !== outputFilePath),
+    );
 
     return {
       outputFilePath,
